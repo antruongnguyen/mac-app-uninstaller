@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1024" height="1024" viewBox="0 0 1024 1024"
+     xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Uninstaller Icon">
+  <defs>
+    <linearGradient id="trashBody" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4FC3F7"/>
+      <stop offset="1" stop-color="#0288D1"/>
+    </linearGradient>
+    <linearGradient id="trashRim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#81D4FA"/>
+      <stop offset="1" stop-color="#4FC3F7"/>
+    </linearGradient>
+    <filter id="softShadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="8" stdDeviation="18" flood-color="#000" flood-opacity="0.15"/>
+    </filter>
+    <filter id="textShadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#000" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect x="64" y="64" rx="192" ry="192" width="896" height="896" fill="#F4F5F7" filter="url(#softShadow)"/>
+
+  <!-- Shapes BEHIND trash (moved slightly up) -->
+  <g>
+    <rect x="300" y="260" width="140" height="140" rx="18" ry="18"
+          fill="#EF5350" stroke="#C62828" stroke-width="6" transform="rotate(-15, 370, 330)"/>
+    <polygon points="520,240 580,360 460,360"
+             fill="#66BB6A" stroke="#2E7D32" stroke-width="6" transform="rotate(10, 520, 300)"/>
+    <circle cx="680" cy="300" r="72" fill="#FFEE58" stroke="#F9A825" stroke-width="6"/>
+  </g>
+
+  <!-- Trash body -->
+  <path d="M260 420 L764 420 L720 840 Q712 880 660 880 L364 880 Q312 880 304 840 Z"
+        fill="url(#trashBody)" stroke="#0277BD" stroke-width="10" rx="24" ry="24"/>
+
+  <!-- Trash rim -->
+  <rect x="240" y="380" width="544" height="64" rx="20" ry="20"
+        fill="url(#trashRim)" stroke="#0277BD" stroke-width="8"/>
+
+  <!-- Text on trash -->
+  <text x="512" y="600" text-anchor="middle" font-size="72" font-weight="bold"
+        font-family="SF Pro Display, Helvetica, Arial, sans-serif"
+        fill="#FFFFFF" stroke="#01579B" stroke-width="3" paint-order="stroke"
+        filter="url(#textShadow)">App</text>
+
+  <text x="512" y="700" text-anchor="middle" font-size="72" font-weight="bold"
+        font-family="SF Pro Display, Helvetica, Arial, sans-serif"
+        fill="#FFFFFF" stroke="#01579B" stroke-width="3" paint-order="stroke"
+        filter="url(#textShadow)">Uninstaller</text>
+</svg>

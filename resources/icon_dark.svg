@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1024" height="1024" viewBox="0 0 1024 1024"
+     xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Uninstaller Icon Dark Mode">
+  <defs>
+    <!-- Gradients -->
+    <linearGradient id="trashBodyDark" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#9BDFF9"/>
+      <stop offset="1" stop-color="#6EC0E8"/>
+    </linearGradient>
+    <linearGradient id="trashRimDark" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#CFF4FF"/>
+      <stop offset="1" stop-color="#9BDFF9"/>
+    </linearGradient>
+
+    <!-- Soft inner shadow for dark background -->
+    <filter id="bgShadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="14" stdDeviation="28" flood-color="#000" flood-opacity="0.6"/>
+    </filter>
+
+    <!-- Subtle shadow for shapes/text -->
+    <filter id="softShadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="6" stdDeviation="12" flood-color="#000" flood-opacity="0.5"/>
+    </filter>
+
+    <!-- Text glow to help on dark -->
+    <filter id="textGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Dark rounded background -->
+  <rect x="64" y="64" rx="192" ry="192" width="896" height="896" fill="#141414" filter="url(#bgShadow)"/>
+
+  <!-- Very subtle inner panel highlight -->
+  <rect x="120" y="120" rx="160" ry="160" width="784" height="784" fill="rgba(255,255,255,0.01)"/>
+
+  <!-- Shapes BEHIND trash (pastel tones, moved slightly up) -->
+  <g filter="url(#softShadow)">
+    <!-- Square (pastel pink) -->
+    <rect x="300" y="260" width="140" height="140" rx="18" ry="18"
+          fill="#FFD7E2" stroke="#FFB3CC" stroke-width="4" transform="rotate(-15, 370, 330)"/>
+    <!-- Triangle (pastel mint) -->
+    <polygon points="520,240 580,360 460,360"
+             fill="#D8FFE8" stroke="#A8F0C9" stroke-width="4" transform="rotate(10, 520, 300)"/>
+    <!-- Circle (pastel yellow) -->
+    <circle cx="680" cy="300" r="72" fill="#FFF6CC" stroke="#FFE28A" stroke-width="4"/>
+  </g>
+
+  <!-- Trash body (brighter for contrast) -->
+  <path d="M260 420 L764 420 L720 840 Q712 880 660 880 L364 880 Q312 880 304 840 Z"
+        fill="url(#trashBodyDark)" stroke="#3EA1D6" stroke-width="10" rx="24" ry="24" filter="url(#softShadow)"/>
+
+  <!-- Trash rim -->
+  <rect x="240" y="380" width="544" height="64" rx="20" ry="20"
+        fill="url(#trashRimDark)" stroke="#3EA1D6" stroke-width="8" filter="url(#softShadow)"/>
+
+  <!-- Text block (centered, App above Uninstaller) -->
+  <!-- "App" -->
+  <text x="512" y="600" text-anchor="middle" font-size="72" font-weight="700"
+        font-family="SF Pro Display, Helvetica, Arial, sans-serif"
+        fill="#FFFFFF" stroke="rgba(22,66,95,0.65)" stroke-width="2" paint-order="stroke"
+        filter="url(#textGlow)">App</text>
+
+  <!-- "Uninstaller" (slightly lower) -->
+  <text x="512" y="700" text-anchor="middle" font-size="72" font-weight="700"
+        font-family="SF Pro Display, Helvetica, Arial, sans-serif"
+        fill="#FFFFFF" stroke="rgba(22,66,95,0.65)" stroke-width="2" paint-order="stroke"
+        filter="url(#textGlow)">Uninstaller</text>
+</svg>
