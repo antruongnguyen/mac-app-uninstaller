@@ -1,30 +1,28 @@
 use eframe::egui;
 use std::sync::{Arc, Mutex};
 
-use crate::ui::tasks;
+use crate::types::StateColors;
 use crate::ui::GuiState;
+use crate::ui::{list, tasks};
+
+use egui::{Color32, Vec2};
 
 /// Render the left sidebar with apps list and refresh button.
 pub fn show(ctx: &egui::Context, state: &Arc<Mutex<GuiState>>) {
-    let scale = ctx.pixels_per_point();
-
     egui::SidePanel::left("sidebar")
         .resizable(false)
-        .default_width(260.0)
+        .exact_width(260.0)
         .show(ctx, |ui| {
-            ui.add_space(4.0 * scale);
+            ui.add_space(4.0);
             // Header row: Applications label on left, Refresh button on right
             let disabled = {
                 let s = state.lock().unwrap();
                 s.task_running
             };
             ui.horizontal(|ui| {
-                ui.label(
-                    egui::RichText::new("Applications")
-                        .strong()
-                        .size(16.0)
-                        .color(egui::Color32::BLACK),
-                );
+                ui.set_height(32.0);
+                ui.label(egui::RichText::new("APPLICATIONS").strong().size(16.0));
+
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     let tx = ui.add_enabled(!disabled, egui::Button::new("Refresh"));
                     if tx.clicked() {
@@ -34,18 +32,27 @@ pub fn show(ctx: &egui::Context, state: &Arc<Mutex<GuiState>>) {
                 });
             });
             ui.separator();
-            ui.add_space(2.0 * scale);
             egui::ScrollArea::vertical().show(ui, |ui| {
                 let apps_clone = { state.lock().unwrap().apps.clone() };
                 for (i, app) in apps_clone.iter().enumerate() {
                     let mut label = app.name.clone();
                     if app.running {
-                        label = format!("{} • running", label);
+                        label = format!("{} • ⏳", label);
                     }
                     let selected = { state.lock().unwrap().selected_index == Some(i) };
                     let full_width = ui.available_width();
-                    let resp =
-                        ui.add_sized([full_width, 0.0], egui::Button::selectable(selected, label));
+                    let resp = list::list_item(
+                        ui,
+                        &label,
+                        Vec2::new(full_width, 24.0),
+                        selected,
+                        StateColors {
+                            default: Color32::from_rgb(247, 248, 250),
+                            hover: Color32::WHITE,
+                            selected: Some(Color32::from_rgb(58, 128, 246)),
+                        },
+                    );
+                    // let resp = default_list_item(ui, &label, Vec2::new(full_width, 24.0), selected);
                     if resp.clicked() {
                         // update selection and load related in background
                         {

@@ -8,11 +8,7 @@ use std::sync::{Arc, Mutex};
 
 /// Render the central panel with app details and actions.
 pub fn show(ctx: &egui::Context, state: &Arc<Mutex<GuiState>>) {
-    let scale = ctx.pixels_per_point();
-
     egui::CentralPanel::default().show(ctx, |ui| {
-        ui.add_space(8.0 * scale);
-
         let (selected_opt, related_clone, related_selected_clone, task_running, progress, message, _status_msgs, current_task) = {
             let s = state.lock().unwrap();
             (
@@ -33,7 +29,7 @@ pub fn show(ctx: &egui::Context, state: &Arc<Mutex<GuiState>>) {
             if let Some(app) = apps_snapshot.get(idx) {
                 ui.horizontal(|ui| {
                     ui.vertical(|ui| {
-                        ui.heading(egui::RichText::new(&app.name).size(20.0 * scale));
+                        ui.heading(egui::RichText::new(&app.name).strong().size(20.0));
                         ui.label(format!("Bundle ID: {}", app.bundle_id.clone().unwrap_or_default()));
                         ui.label(format!("Path: {}", app.path.display()));
                         if app.running {
@@ -50,9 +46,9 @@ pub fn show(ctx: &egui::Context, state: &Arc<Mutex<GuiState>>) {
                     });
                 });
 
-                ui.add_space(8.0 * scale);
+                ui.add_space(6.0);
                 ui.separator();
-                ui.add_space(8.0 * scale);
+                ui.add_space(6.0);
 
                 // Actions: placed above Related section
                 ui.horizontal(|ui| {
@@ -117,14 +113,7 @@ pub fn show(ctx: &egui::Context, state: &Arc<Mutex<GuiState>>) {
                     }
                 });
 
-                ui.add_space(8.0 * scale);
-
-                // Show progress for "Finding related files..." between buttons and the Related section
-                if matches!(current_task, TaskKind::RefreshRelated(_)) && task_running {
-                    ui.label(message.clone());
-                    ui.add(egui::ProgressBar::new(progress).show_percentage().fill(egui::Color32::from_rgb(58, 128, 246)));
-                    ui.add_space(6.0 * scale);
-                }
+                ui.add_space(8.0);
 
                 let label = if related_clone.is_empty() {
                     "Related Files & Folders"
@@ -137,10 +126,17 @@ pub fn show(ctx: &egui::Context, state: &Arc<Mutex<GuiState>>) {
                         .size(16.0)
                         .color(egui::Color32::DARK_RED),
                 );
-                ui.add_space(6.0 * scale);
+                ui.add_space(6.0);
 
                 if related_clone.is_empty() {
-                    ui.label("No related data found.");
+                    // Show progress for "Finding related files..." between buttons and the Related section
+                    if matches!(current_task, TaskKind::RefreshRelated(_)) && task_running {
+                        ui.label(message.clone());
+                        ui.add(egui::ProgressBar::new(progress).desired_height(6.0));
+                        ui.add_space(6.0);
+                    } else {
+                        ui.label("No related data found.");
+                    }
                 } else {
                     egui::ScrollArea::both()
                         .auto_shrink([false, false])
@@ -152,6 +148,12 @@ pub fn show(ctx: &egui::Context, state: &Arc<Mutex<GuiState>>) {
                             for (i, p) in related_clone.iter().enumerate() {
                                 let mut checked = related_selected_clone.get(i).cloned().unwrap_or(true);
                                 ui.horizontal(|ui| {
+                                    if ui.small_button("Reveal").clicked() {
+                                        if let Err(e) = reveal_in_finder(p) {
+                                            let mut s = state.lock().unwrap();
+                                            s.status_msgs.push(format!("Cannot reveal {}: {:?}", p.display(), e));
+                                        }
+                                    }
                                     let checkbox = ui.checkbox(&mut checked, p.display().to_string());
                                     if checkbox.clicked() {
                                         // update real state
@@ -160,18 +162,12 @@ pub fn show(ctx: &egui::Context, state: &Arc<Mutex<GuiState>>) {
                                             s.related_selected[i] = checked;
                                         }
                                     }
-                                    if ui.small_button("Reveal").clicked() {
-                                        if let Err(e) = reveal_in_finder(p) {
-                                            let mut s = state.lock().unwrap();
-                                            s.status_msgs.push(format!("Cannot reveal {}: {:?}", p.display(), e));
-                                        }
-                                    }
                                 });
                             }
                         });
                 }
 
-                ui.add_space(8.0 * scale);
+                ui.add_space(8.0);
             } else {
                 ui.centered_and_justified(|ui| {
                     ui.label("Selected index out of range");

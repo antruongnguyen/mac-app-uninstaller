@@ -64,7 +64,7 @@ impl Default for MacUninstallerApp {
         // kick off initial refresh in background
         {
             let st = state.clone();
-            super::ui::tasks::spawn_refresh_apps(st.clone());
+            tasks::spawn_refresh_apps(st.clone());
         }
         Self { state }
     }
@@ -130,4 +130,5 @@ impl App for MacUninstallerApp {
     }
 }
 
+mod list;
 pub mod tasks;

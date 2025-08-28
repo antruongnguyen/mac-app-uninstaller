@@ -53,6 +53,8 @@ pub fn set_appkit_style(ctx: &egui::Context) {
     // Set font weights to normal
 
     // Tighter layout akin to AppKit
+    // Disable text selection
+    style.interaction.selectable_labels = false;
     style.spacing.item_spacing = egui::vec2(8.0, 6.0);
     style.spacing.button_padding = egui::vec2(10.0, 6.0);
     style.spacing.window_margin = egui::Margin::symmetric(8, 8);

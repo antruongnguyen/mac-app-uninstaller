@@ -1,5 +1,6 @@
 //! Core data types shared across the application.
 
+use egui::Color32;
 use std::path::PathBuf;
 
 /// Discovered application bundle with basic metadata.
@@ -29,4 +30,10 @@ pub struct ProgressUpdate {
     pub message: String, // human friendly
     pub finished: bool,  // whether task finished
     pub error: Option<String>,
+}
+
+pub struct StateColors {
+    pub default: Color32,
+    pub hover: Color32,
+    pub selected: Option<Color32>, // None = use default theme color
 }
