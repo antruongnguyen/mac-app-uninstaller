@@ -35,7 +35,7 @@ A lightweight application for **macOS** that allows you to:
 ## 📁 Project Structure
 
 ```
-mac_uninstaller/
+mac-app-uninstaller/
  ├─ src/
  │   ├─ main.rs           # Entry point and eframe initialization
  │   ├─ core.rs           # Business logic (scan apps, find related files)
@@ -70,11 +70,11 @@ mac_uninstaller/
 
 ---
 
-## 🚀 Running the Application (Debug mode)
+## 🚀 Running the Application
 
 ```bash
 git clone https://github.com/antruongnguyen/mac-app-uninstaller.git
-cd mac_uninstaller
+cd mac-app-uninstaller
 cargo run
 ```
 
@@ -100,8 +100,8 @@ The application will open with a 1000x700px window and automatically scan apps o
    ```
 
 4. **Bundle metadata** is defined in `Cargo.toml`:
-   - App name: "App Uninstaller"
-   - Bundle identifier: "day.nhanh.appuninstaller"
+   - App name: `App Uninstaller`
+   - Bundle identifier: `day.nhanh.appuninstaller`
    - Icon: `resources/icon.icns`
 
 ---
@@ -178,4 +178,4 @@ The application automatically finds related files in:
 
 ## 📜 License
 
-MIT License — You are free to modify and distribute.
+MIT License — You are free to modify and distribute this application, but you must include the original author information.
