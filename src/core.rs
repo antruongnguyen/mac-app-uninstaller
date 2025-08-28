@@ -90,26 +90,84 @@ pub fn read_info_from_app(path: &Path) -> Result<(Option<String>, Option<String>
     Ok((bundle_id, bundle_name))
 }
 
-/// Minimal running check using sysinfo snapshot
+/// Minimal running check using sysinfo snapshot with stronger heuristics and less duplication
 pub fn is_app_running(sys: &System, bundle_id: Option<&str>, app_name: Option<&str>) -> bool {
+    // Precompute lowercase inputs once
+    let bid_l = bundle_id.map(|s| s.to_lowercase());
+    let bid_last_l = bundle_id
+        .and_then(|s| s.rsplit('.').next())
+        .map(|s| s.to_lowercase());
+    let an_l = app_name.map(|s| s.to_lowercase());
+
+    // Small helper to check common app-bundle path patterns inside a string
+    let matches_app_path = |hay: &str, key: &str| {
+        hay.contains(&format!("/{}.app/", key))
+            || hay.contains(&format!("/{}.app", key))
+            || hay.ends_with(&format!("/{}", key))
+    };
+
     for (_pid, proc_) in sys.processes() {
-        let name = proc_.name().to_string_lossy().to_lowercase();
-        let cmdline = proc_
+        let name_l = proc_.name().to_string_lossy().to_lowercase();
+
+        // 1) Prefer exact-ish name matches to avoid false positives
+        if let Some(ref an) = an_l {
+            if name_l == *an || name_l == format!("{}.app", an) {
+                return true;
+            }
+        }
+        if let Some(ref last) = bid_last_l {
+            if name_l == *last || name_l == format!("{}.app", last) {
+                return true;
+            }
+        }
+
+        // 2) Check executable path, which often resides inside "AppName.app"
+        if let Some(exe_path) = proc_.exe() {
+            let exe_s = exe_path.to_string_lossy().to_lowercase();
+            if let Some(ref an) = an_l {
+                if matches_app_path(&exe_s, an) {
+                    return true;
+                }
+            }
+            if let Some(ref bid) = bid_l {
+                if exe_s.contains(bid) {
+                    return true;
+                }
+            }
+            if let Some(ref last) = bid_last_l {
+                if matches_app_path(&exe_s, last) {
+                    return true;
+                }
+            }
+        }
+
+        // 3) Check command line for precise fragments
+        // Build lazily and only once per process
+        let cmdline_l = proc_
             .cmd()
             .iter()
             .map(|s| s.to_string_lossy())
             .collect::<Vec<_>>()
             .join(" ")
             .to_lowercase();
-        if let Some(bid) = bundle_id {
-            let bid_l = bid.to_lowercase();
-            if cmdline.contains(&bid_l) || name.contains(&bid_l) {
+
+        if let Some(ref bid) = bid_l {
+            if cmdline_l.contains(bid) {
                 return true;
             }
         }
-        if let Some(an) = app_name {
-            let an_l = an.to_lowercase();
-            if name.contains(&an_l) || cmdline.contains(&an_l) {
+        if let Some(ref an) = an_l {
+            // Prefer to match either an ".app" path or exact token
+            if cmdline_l.contains(&format!("/{}.app", an))
+                || cmdline_l.contains(&format!(" {} ", an))
+                || cmdline_l.starts_with(&format!("{} ", an))
+                || cmdline_l.ends_with(&format!(" {}", an))
+            {
+                return true;
+            }
+        }
+        if let Some(ref last) = bid_last_l {
+            if cmdline_l.contains(&format!("/{}.app", last)) {
                 return true;
             }
         }
