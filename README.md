@@ -1,120 +1,179 @@
 # 🗑 App Uninstaller GUI (Rust + egui)
 
-Ứng dụng GUI nhỏ gọn cho **macOS** cho phép:
+A lightweight application for **macOS** that allows you to:
 
-- Liệt kê tất cả ứng dụng cài đặt trong `/Applications` và `~/Applications`.
-- Phát hiện ứng dụng đang chạy (không thể gỡ).
-- Xem và chọn các file/dữ liệu liên quan để xóa (LaunchAgents, Logs, Preferences, Receipts...).
-- Chuyển ứng dụng và dữ liệu vào **Trash** thay vì xóa ngay lập tức.
-- Giao diện giống **System Preferences** trên macOS, icon `.icns` native.
+- List all applications installed in `/Applications` and `~/Applications`.
+- Detect running applications (cannot be uninstalled).
+- View and select related files/data for deletion (LaunchAgents, Logs, Preferences, Receipts, Containers...).
+- Move applications and data to **Trash** instead of immediate deletion.
+- Native macOS interface with `.icns` icon and AppKit theme.
+- Display progress bar when performing background tasks.
 
 ---
 
-## 📦 Yêu cầu hệ thống
+## 📦 System Requirements
 
-- **macOS 11.0 Big Sur** trở lên (khuyến nghị macOS 12+).
-- **Rust toolchain** (Nightly hoặc Stable mới nhất).
-- `cargo-bundle` để build `.app`:
+- **macOS 11.0 Big Sur** or later (macOS 12+ recommended).
+- **Rust toolchain** (Edition 2024, latest Stable or Nightly).
+- `cargo-bundle` to build `.app`:
   ```bash
   cargo install cargo-bundle
   ```
-
-* **Xcode Command Line Tools** (để build cho macOS):
-
+- **Xcode Command Line Tools** (for building on macOS):
   ```bash
   xcode-select --install
   ```
-* Font San Francisco (SF Pro Text) — macOS đã có sẵn.
+- **librsvg** (to convert SVG to ICNS):
+  ```bash
+  brew install librsvg
+  ```
 
 ---
 
-## 📁 Cấu trúc thư mục
+## 📁 Project Structure
 
 ```
-mac_uninstaller_gui/
- ├─ src/                  # Source code Rust
+mac_uninstaller/
+ ├─ src/
+ │   ├─ main.rs           # Entry point and eframe initialization
+ │   ├─ core.rs           # Business logic (scan apps, find related files)
+ │   ├─ osx.rs            # macOS utilities (set Dock icon, open System Settings)
+ │   ├─ style.rs          # Theme and styling for egui
+ │   ├─ types.rs          # Data structure definitions
+ │   └─ ui/
+ │       ├─ mod.rs        # Main UI state and eframe App implementation
+ │       ├─ tasks.rs      # Background tasks (refresh, scan, uninstall)
+ │       ├─ list.rs       # A custom list item component
+ │       └─ panels/       # UI components (top, side, central, bottom)
  ├─ resources/
- │   ├─ MyIcon.icns       # Icon macOS app
- │   └─ SF-Pro-Text-Regular.otf (tùy chọn)
+ │   ├─ icon.icns         # Main app icon
+ │   ├─ icon_dark.icns    # Icon for dark mode
+ │   ├─ icon.svg          # Vector source
+ │   ├─ icon_dark.svg     # Vector source for dark mode
+ │   └─ svg-to-icns.sh    # Script to convert SVG to ICNS
  ├─ Cargo.toml
  └─ README.md
 ```
 
 ---
 
-## 🚀 Cách chạy ứng dụng (Debug mode)
+## 🛠 Main Dependencies
 
-```bash
-git clone https://github.com/yourname/mac_uninstaller_gui.git
-cd mac_uninstaller_gui
-cargo run
-```
-
-Ứng dụng sẽ chạy trong cửa sổ debug của egui.
+- **eframe/egui 0.32**: GUI framework
+- **sysinfo 0.37**: Check running processes
+- **plist 1.7**: Read Info.plist of app bundles
+- **trash 5.2**: Move files to Trash safely
+- **walkdir 2.5**: Recursive directory scanning
+- **cocoa/objc**: macOS native integration
 
 ---
 
-## 🖥 Build ra file `.app` cho macOS
+## 🚀 Running the Application (Debug mode)
 
-1. **Tạo icon `.icns`** nếu chưa có:
+```bash
+git clone https://github.com/antruongnguyen/mac-app-uninstaller.git
+cd mac_uninstaller
+cargo run
+```
 
+The application will open with a 1000x700px window and automatically scan apps on startup.
+
+---
+
+## 🖥 Building `.app` for macOS
+
+1. **Use the included script** to convert SVG to ICNS:
    ```bash
-   mkdir MyIcon.iconset
-   sips -z 16 16     icon.png --out MyIcon.iconset/icon_16x16.png
-   sips -z 32 32     icon.png --out MyIcon.iconset/icon_16x16@2x.png
-   sips -z 32 32     icon.png --out MyIcon.iconset/icon_32x32.png
-   sips -z 64 64     icon.png --out MyIcon.iconset/icon_32x32@2x.png
-   sips -z 128 128   icon.png --out MyIcon.iconset/icon_128x128.png
-   sips -z 256 256   icon.png --out MyIcon.iconset/icon_128x128@2x.png
-   sips -z 256 256   icon.png --out MyIcon.iconset/icon_256x256.png
-   sips -z 512 512   icon.png --out MyIcon.iconset/icon_256x256@2x.png
-   sips -z 512 512   icon.png --out MyIcon.iconset/icon_512x512.png
-   cp icon.png MyIcon.iconset/icon_512x512@2x.png
-   iconutil -c icns MyIcon.iconset
-   mv MyIcon.icns resources/
+   ./svg-to-icns.sh
    ```
 
-2. **Build**:
-
+2. **Build release**:
    ```bash
    cargo bundle --release
    ```
 
-3. File `.app` sẽ nằm ở:
-
+3. The `.app` file will be located at:
    ```
    target/release/bundle/osx/App Uninstaller.app
    ```
 
+4. **Bundle metadata** is defined in `Cargo.toml`:
+   - App name: "App Uninstaller"
+   - Bundle identifier: "day.nhanh.appuninstaller"
+   - Icon: `resources/icon.icns`
+
 ---
 
-## 🛠 Quyền truy cập
+## 🎨 UI Features
 
-* Ứng dụng cần quyền **Full Disk Access** để xóa file trong một số thư mục hệ thống (`~/Library`,
-  `/Library`).
-* Cấp quyền trong:
-  **System Preferences** → **Security & Privacy** → **Privacy** → **Full Disk Access** → thêm ứng
-  dụng `.app`.
+- **Sidebar**: App list with running status indicators
+- **Central panel**: Selected app details and related files list
+- **Progress bar**: Shows scan/uninstall progress
+- **Status log**: History of performed operations
+- **macOS native styling**: Theme similar to System Preferences
+- **Dock icon**: Automatically set from bundle resources
+
+---
+
+## 🛡 Access Permissions
+
+The application requires the following permissions:
+
+**Full Disk Access** to:
+- Read app information in `/Applications`
+- Delete files in system directories (`~/Library`, `/Library`)
+- Scan receipts in `/private/var/db/receipts`
+
+**App Management** to:
+- Uninstall applications and their components
+- Manage application bundles and associated files
+
+**How to grant permissions:**
+- Open **System Settings** → **Privacy & Security** → **Full Disk Access**
+- Click the (+) button and add the `App Uninstaller.app` file
+- Also go to **App Management** in the same Privacy & Security section
+- Add the `App Uninstaller.app` file there as well
+
+---
+
+## 📂 Scanned File Locations
+
+The application automatically finds related files in:
+
+**User Library:**
+- `~/Library/Application Support/<bundle_id|app_name>`
+- `~/Library/Caches/<bundle_id|app_name>`
+- `~/Library/Preferences/<bundle_id>.plist`
+- `~/Library/Containers/<bundle_id>`
+- `~/Library/Logs/<app_name>`
+- `~/Library/LaunchAgents/<bundle_id|app_name>*`
+
+**System Library:**
+- `/Library/Application Support/<bundle_id>`
+- `/Library/Preferences/<bundle_id>.plist`
+- `/Library/Receipts/<app_name>*`
+- `/private/var/db/receipts/<bundle_id|app_name>*`
+
+---
+
+## 💡 Notes
+
+- **Safety**: The application only moves files to Trash, never permanently deletes them
+- **Smart detection**: Detects running apps based on process name and bundle ID
+- **Selective uninstall**: Allows selecting individual files/folders
+- **Background tasks**: UI remains responsive during scan/uninstall operations
+- **Error handling**: Graceful fallback if moving to Trash fails
+
+---
+
+## 👨‍💻 Author
+
+**An Nguyen**  
+📧 annguyen.apps@gmail.com  
+🌐 https://nhanh.day
 
 ---
 
 ## 📜 License
 
-MIT License — Bạn có thể sửa đổi và phân phối tự do.
-
----
-
-## 💡 Lưu ý
-
-* Ứng dụng chỉ xóa được app **không đang chạy**.
-* Các file liên quan được tìm ở:
-
-  * `~/Library/Preferences`
-  * `~/Library/Application Support`
-  * `~/Library/Caches`
-  * `~/Library/Logs`
-  * `~/Library/LaunchAgents`
-  * `/Library/Preferences`
-  * `/Library/Application Support`
-  * `/private/var/db/receipts`
-* Chế độ mặc định là **chuyển vào Trash** để tránh mất dữ liệu không mong muốn.
+MIT License — You are free to modify and distribute.
