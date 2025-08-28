@@ -157,6 +157,25 @@ pub fn spawn_uninstall_selected(state_arc: Arc<Mutex<GuiState>>, idx: usize) {
 
     let state_for_refresh = state_arc.clone();
 
+    // Helper to detect if a path is likely protected (will require admin/system auth)
+    fn is_protected_path(p: &std::path::Path) -> bool {
+        // Heuristic: paths under system locations are considered protected.
+        // Note: On modern macOS, protected locations can be mounted under /System/Volumes/Data as well.
+        let s = p.to_string_lossy();
+        s.starts_with("/Library")
+            || s.starts_with("/System")
+            || s.starts_with("/System/Volumes")
+            || s.starts_with("/System/Volumes/Data")
+            || s.starts_with("/Applications")
+            || s.starts_with("/private")
+            || s.starts_with("/usr")
+            || s.starts_with("/bin")
+            || s.starts_with("/sbin")
+            || s.starts_with("/var")
+            || s.starts_with("/opt")
+            || s.starts_with("/etc")
+    }
+
     thread::spawn(move || {
         let _ = tx.send(ProgressUpdate {
             kind: TaskKind::Uninstall(idx),
@@ -166,9 +185,16 @@ pub fn spawn_uninstall_selected(state_arc: Arc<Mutex<GuiState>>, idx: usize) {
             error: None,
         });
 
-        // Step 1: move bundle to trash
-        let total_steps = 1 + paths_to_remove.len();
-        let mut step = 0usize;
+        // Local helper to reduce duplication when reporting successful removals
+        fn removed_update(idx: usize, step: usize, total_steps: usize, path: &std::path::Path) -> ProgressUpdate {
+            ProgressUpdate {
+                kind: TaskKind::Uninstall(idx),
+                progress: (step as f32) / (total_steps as f32),
+                message: format!("Removed {}", path.display()),
+                finished: false,
+                error: None,
+            }
+        }
 
         // Check running - if running, abort
         if is_app_running_simple(app.bundle_id.as_deref(), Some(&app.name)) {
@@ -181,6 +207,11 @@ pub fn spawn_uninstall_selected(state_arc: Arc<Mutex<GuiState>>, idx: usize) {
             });
             return;
         }
+
+        // Step 1: Always move the app bundle to Trash first
+        let total_related = paths_to_remove.len();
+        let total_steps = 1 + total_related; // 1 for the app bundle
+        let mut step = 0usize;
 
         match move_to_trash_or_remove(&app.path) {
             Ok(_) => {
@@ -205,18 +236,46 @@ pub fn spawn_uninstall_selected(state_arc: Arc<Mutex<GuiState>>, idx: usize) {
             }
         }
 
-        // Step 2: related paths (only those the user checked)
+        // Step 2: After the app is removed, process related files and folders
+        let mut protected: Vec<PathBuf> = Vec::new();
+        let mut unprotected: Vec<PathBuf> = Vec::new();
         for p in paths_to_remove.iter() {
-            match move_to_trash_or_remove(p) {
+            if is_protected_path(p) {
+                protected.push(p.clone());
+            } else {
+                unprotected.push(p.clone());
+            }
+        }
+
+        // Phase 2a: protected related first (auth prompt early). Abort on first failure.
+        for p in protected.iter() {
+            let res = move_to_trash_or_remove(p);
+            match res {
                 Ok(_) => {
                     step += 1;
+                    let _ = tx.send(removed_update(idx, step, total_steps, p));
+                }
+                Err(e) => {
                     let _ = tx.send(ProgressUpdate {
                         kind: TaskKind::Uninstall(idx),
                         progress: (step as f32) / (total_steps as f32),
-                        message: format!("Removed {}", p.display()),
-                        finished: false,
-                        error: None,
+                        message: format!("Aborting uninstall due to failure on {}: {:?}", p.display(), e),
+                        finished: true,
+                        error: Some(format!("{:?}", e)),
                     });
+                    return;
+                }
+            }
+            thread::sleep(Duration::from_millis(120));
+        }
+
+        // Phase 2b: unprotected related (continue with per-item errors)
+        for p in unprotected.iter() {
+            let res = move_to_trash_or_remove(p);
+            match res {
+                Ok(_) => {
+                    step += 1;
+                    let _ = tx.send(removed_update(idx, step, total_steps, p));
                 }
                 Err(e) => {
                     let _ = tx.send(ProgressUpdate {
@@ -228,7 +287,6 @@ pub fn spawn_uninstall_selected(state_arc: Arc<Mutex<GuiState>>, idx: usize) {
                     });
                 }
             }
-            // small pause so progress updates are visible
             thread::sleep(Duration::from_millis(120));
         }
 
