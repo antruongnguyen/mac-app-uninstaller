@@ -5,7 +5,9 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::{thread, time::Duration};
 
-use crate::core::{find_app_bundles_progress, find_related_paths, is_app_running_simple, move_to_trash_or_remove};
+use crate::core::{
+    find_app_bundles_progress, find_related_paths, is_app_running_simple, move_to_trash_or_remove,
+};
 use crate::types::{ProgressUpdate, TaskKind};
 
 use super::GuiState;
@@ -186,7 +188,12 @@ pub fn spawn_uninstall_selected(state_arc: Arc<Mutex<GuiState>>, idx: usize) {
         });
 
         // Local helper to reduce duplication when reporting successful removals
-        fn removed_update(idx: usize, step: usize, total_steps: usize, path: &std::path::Path) -> ProgressUpdate {
+        fn removed_update(
+            idx: usize,
+            step: usize,
+            total_steps: usize,
+            path: &std::path::Path,
+        ) -> ProgressUpdate {
             ProgressUpdate {
                 kind: TaskKind::Uninstall(idx),
                 progress: (step as f32) / (total_steps as f32),
@@ -259,7 +266,11 @@ pub fn spawn_uninstall_selected(state_arc: Arc<Mutex<GuiState>>, idx: usize) {
                     let _ = tx.send(ProgressUpdate {
                         kind: TaskKind::Uninstall(idx),
                         progress: (step as f32) / (total_steps as f32),
-                        message: format!("Aborting uninstall due to failure on {}: {:?}", p.display(), e),
+                        message: format!(
+                            "Aborting uninstall due to failure on {}: {:?}",
+                            p.display(),
+                            e
+                        ),
                         finished: true,
                         error: Some(format!("{:?}", e)),
                     });

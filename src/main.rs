@@ -1,7 +1,7 @@
-mod types;
 mod core;
-mod style;
 mod osx;
+mod style;
+mod types;
 mod ui;
 
 use eframe::egui;
