@@ -1,4 +1,4 @@
-# 🗑 App Uninstaller GUI (Rust + egui)
+# 🗑 macOS App Uninstaller (Rust + egui)
 
 A lightweight application for **macOS** that allows you to:
 
@@ -8,6 +8,8 @@ A lightweight application for **macOS** that allows you to:
 - Move applications and data to **Trash** instead of immediate deletion.
 - Native macOS interface with `.icns` icon and AppKit theme.
 - Display progress bar when performing background tasks.
+
+![macOS App Uninstaller v1.0.0](resources/screenshots/macOS-App-Uninstaller-1_0_0.png)
 
 ---
 
