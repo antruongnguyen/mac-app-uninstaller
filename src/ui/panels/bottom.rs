@@ -1,6 +1,6 @@
+use crate::ui::color::roles as colors;
 use crate::ui::GuiState;
 use eframe::egui;
-use eframe::epaint::Color32;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
@@ -70,8 +70,7 @@ pub fn show(ctx: &egui::Context, state: &Arc<Mutex<GuiState>>) {
                             "Applications: {}  •  Related: {} (Prefs {}, Receipts {}, Caches {}, Support {}, Containers {}, Logs {}, Agents {}, Other {})",
                             apps_len, total_related, prefs, receipts, caches, app_support, containers, logs, launch_agents, other
                         ))
-                        .color(Color32::from_rgb(110, 112, 124))
-                        .monospace(),
+                        .color(colors::text_muted()),
                     );
                 });
             });

@@ -5,7 +5,8 @@ use crate::types::StateColors;
 use crate::ui::GuiState;
 use crate::ui::{list, tasks};
 
-use egui::{Color32, Vec2};
+use crate::ui::color::roles as colors;
+use egui::Vec2;
 
 /// Render the left sidebar with apps list and refresh button.
 pub fn show(ctx: &egui::Context, state: &Arc<Mutex<GuiState>>) {
@@ -37,7 +38,7 @@ pub fn show(ctx: &egui::Context, state: &Arc<Mutex<GuiState>>) {
                 for (i, app) in apps_clone.iter().enumerate() {
                     let mut label = app.name.clone();
                     if app.running {
-                        label = format!("{} • ⏳", label);
+                        label = format!("{} • running", label);
                     }
                     let selected = { state.lock().unwrap().selected_index == Some(i) };
                     let full_width = ui.available_width();
@@ -46,10 +47,11 @@ pub fn show(ctx: &egui::Context, state: &Arc<Mutex<GuiState>>) {
                         &label,
                         Vec2::new(full_width, 24.0),
                         selected,
+                        app.running,
                         StateColors {
-                            default: Color32::from_rgb(247, 248, 250),
-                            hover: Color32::WHITE,
-                            selected: Some(Color32::from_rgb(58, 128, 246)),
+                            default: colors::list_bg_default(),
+                            hover: colors::list_bg_hover(),
+                            selected: Some(colors::list_bg_selected()),
                         },
                     );
                     // let resp = default_list_item(ui, &label, Vec2::new(full_width, 24.0), selected);

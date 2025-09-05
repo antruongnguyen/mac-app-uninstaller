@@ -1,14 +1,16 @@
 use crate::core::reveal_in_finder;
 use crate::osx::open_full_disk_access_settings;
 use crate::types::TaskKind;
+use crate::ui::color::roles as colors;
 use crate::ui::tasks;
 use crate::ui::GuiState;
 use eframe::egui;
+use egui::{Button, CentralPanel, Layout, ProgressBar, RichText, ScrollArea, TextWrapMode};
 use std::sync::{Arc, Mutex};
 
 /// Render the central panel with app details and actions.
 pub fn show(ctx: &egui::Context, state: &Arc<Mutex<GuiState>>) {
-    egui::CentralPanel::default().show(ctx, |ui| {
+    CentralPanel::default().show(ctx, |ui| {
         let (selected_opt, related_clone, related_selected_clone, task_running, progress, message, _status_msgs, current_task) = {
             let s = state.lock().unwrap();
             (
@@ -29,14 +31,14 @@ pub fn show(ctx: &egui::Context, state: &Arc<Mutex<GuiState>>) {
             if let Some(app) = apps_snapshot.get(idx) {
                 ui.horizontal(|ui| {
                     ui.vertical(|ui| {
-                        ui.heading(egui::RichText::new(&app.name).strong().size(20.0));
+                        ui.heading(RichText::new(&app.name).strong().size(20.0));
                         ui.label(format!("Bundle ID: {}", app.bundle_id.clone().unwrap_or_default()));
                         ui.label(format!("Path: {}", app.path.display()));
                         if app.running {
-                            ui.colored_label(egui::Color32::from_rgb(200, 70, 70), "⚠ Application is running");
+                            ui.colored_label(colors::warning(), "⚠ Application is running");
                         }
                     });
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
+                    ui.with_layout(Layout::right_to_left(egui::Align::TOP), |ui| {
                         if ui.button("Show in Finder").clicked() {
                             if let Err(e) = reveal_in_finder(&app.path) {
                                 let mut s = state.lock().unwrap();
@@ -59,8 +61,8 @@ pub fn show(ctx: &egui::Context, state: &Arc<Mutex<GuiState>>) {
                     if ui
                         .add_enabled(
                             !uninstall_disabled,
-                            egui::Button::new(egui::RichText::new("🗑 Uninstall").color(egui::Color32::WHITE))
-                                .fill(egui::Color32::from_rgb(220, 68, 68)),
+                            Button::new(RichText::new("🗑 Uninstall").color(colors::text_inverse()))
+                                .fill(colors::danger()),
                         )
                         .clicked()
                     {
@@ -79,11 +81,6 @@ pub fn show(ctx: &egui::Context, state: &Arc<Mutex<GuiState>>) {
                         // spawn uninstall
                         let st = state.clone();
                         tasks::spawn_uninstall_selected(st, idx);
-                    }
-
-                    if ui.button("Scan Related Resources").clicked() {
-                        let st = state.clone();
-                        tasks::spawn_refresh_related_for_selected(st, idx);
                     }
 
                     // Show select all/none toggle if there are related items
@@ -121,10 +118,10 @@ pub fn show(ctx: &egui::Context, state: &Arc<Mutex<GuiState>>) {
                     "Related Files & Folders To Be Deleted (REVIEW CAREFULLY)"
                 };
                 ui.label(
-                    egui::RichText::new(label)
+                    RichText::new(label)
                         .strong()
                         .size(16.0)
-                        .color(egui::Color32::DARK_RED),
+                        .color(colors::danger()),
                 );
                 ui.add_space(6.0);
 
@@ -132,18 +129,18 @@ pub fn show(ctx: &egui::Context, state: &Arc<Mutex<GuiState>>) {
                     // Show progress for "Finding related files..." between buttons and the Related section
                     if matches!(current_task, TaskKind::RefreshRelated(_)) && task_running {
                         ui.label(message.clone());
-                        ui.add(egui::ProgressBar::new(progress).desired_height(6.0));
+                        ui.add(ProgressBar::new(progress).desired_height(6.0));
                         ui.add_space(6.0);
                     } else {
                         ui.label("No related data found.");
                     }
                 } else {
-                    egui::ScrollArea::both()
+                    ScrollArea::both()
                         .auto_shrink([false, false])
                         .show(ui, |ui| {
                             // Make the list expand to the width of the panel and avoid line-wrapping
                             ui.set_width(ui.available_width());
-                            ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
+                            ui.style_mut().wrap_mode = Some(TextWrapMode::Extend);
 
                             for (i, p) in related_clone.iter().enumerate() {
                                 let mut checked = related_selected_clone.get(i).cloned().unwrap_or(true);
