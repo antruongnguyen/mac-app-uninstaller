@@ -7,17 +7,19 @@ After the migration from egui to Tauri, the application is split into two halves
 ```
 ┌────────────────────────────────────────────────────────────────────┐
 │ Frontend (React + TypeScript + Vite + Tailwind v4 + shadcn/ui)     │
-│  ─ Pages/components for app list, related files, progress, log    │
+│  ─ Pages/components for app list, related files, app card          │
 │  ─ Zustand stores (apps, related, task)                            │
-│  ─ src/lib/api/uninstaller.ts wraps `invoke()` calls               │
+│  ─ src/lib/api/uninstaller.ts wraps `tauriInvoke` calls            │
 │  ─ Listens to `progress` events for streaming updates              │
+│  ─ Hooks: useAppSize (lazy size lookup), useIsTruncated (tooltip)  │
 └──────────────────────────▲──────────────────┬──────────────────────┘
                            │ events           │ invoke
                            │                  ▼
 ┌────────────────────────────────────────────────────────────────────┐
 │ Backend (Rust, src-tauri/)                                         │
-│  ─ commands/        Tauri command handlers (#[tauri::command])     │
-│  ─ core/            Pure business logic (scan, plist, trash, …)   │
+│  ─ commands.rs      Tauri command handlers (#[tauri::command])     │
+│  ─ core/            Pure business logic (scan, plist, related,     │
+│                     running, kill, trash)                          │
 │  ─ models.rs        Serde-serialisable types shared with frontend  │
 │  ─ progress.rs      Helper that emits typed `progress` events      │
 └────────────────────────────────────────────────────────────────────┘
@@ -38,10 +40,12 @@ mac_uninstaller/
 ├── src/                        React frontend
 │   ├── components/             Page-level components composed from shadcn/ui
 │   │   └── ui/                 shadcn-generated primitives (button, card, …)
+│   ├── hooks/                  use-app-size, use-is-truncated
 │   ├── lib/
-│   │   ├── api/uninstaller.ts  Typed wrapper around `invoke()`
-│   │   ├── tauri.ts            isInsideTauri + dev-mode bypass for `bun run dev`
-│   │   └── utils.ts            `cn` helper (clsx + tailwind-merge)
+│   │   ├── api/uninstaller.ts  Typed wrapper around `tauriInvoke`
+│   │   ├── styles.ts           IDS, STYLES, REPO_URL — single source of truth
+│   │   ├── tauri.ts            tauriInvoke / tauriListen + dev-shell guard
+│   │   └── utils.ts            cn(), formatBytes(), formatTimestamp()
 │   ├── stores/                 Zustand stores
 │   ├── types/                  TS mirror of the Rust models
 │   ├── App.tsx                 Top-level layout
@@ -49,11 +53,11 @@ mac_uninstaller/
 │   └── index.css               Tailwind + theme tokens
 ├── src-tauri/                  Tauri backend
 │   ├── src/
-│   │   ├── core/               (mod) scan, plist, related-paths, trash helpers
-│   │   ├── commands/           (mod) one file per command group
+│   │   ├── core/               (mod) apps, plist_info, related, running, trash
+│   │   ├── commands.rs         Tauri command handlers (#[tauri::command])
 │   │   ├── models.rs           Serde DTOs shared with the frontend
 │   │   ├── progress.rs         Progress event emitter
-│   │   ├── lib.rs              `pub fn run()` registers all commands
+│   │   ├── lib.rs              `pub fn run()` registers all commands and plugins
 │   │   └── main.rs             Entry — calls `lib::run()`
 │   ├── capabilities/default.json
 │   ├── tauri.conf.json
@@ -76,15 +80,17 @@ All cross-process communication happens through three things:
 
 ### Commands
 
-| Command            | Args                                 | Returns          | Purpose                                          |
-| ------------------ | ------------------------------------ | ---------------- | ------------------------------------------------ |
-| `list_apps`        | none                                 | `Vec<AppInfo>`   | Scan `/Applications` and `~/Applications`        |
-| `find_related`     | `bundle_id?`, `app_name`             | `Vec<String>`    | Walk Library locations, return related paths     |
-| `is_app_running`   | `bundle_id?`, `app_name?`            | `bool`           | Re-check before uninstall                        |
-| `uninstall`        | `app_path`, `paths: Vec<String>`     | `UninstallReport`| Trash the app and the user-selected related items|
-| `reveal_in_finder` | `path: String`                       | `()`             | Run `open -R <path>`                             |
+| Command            | Args                                                          | Returns           | Purpose                                                       |
+| ------------------ | ------------------------------------------------------------- | ----------------- | ------------------------------------------------------------- |
+| `list_apps`        | none                                                          | `Vec<AppInfo>`    | Scan `/Applications` and `~/Applications`                     |
+| `find_related`     | `bundle_id?`, `app_name`                                      | `Vec<String>`     | Walk Library locations, return related paths                  |
+| `is_app_running`   | `bundle_id?`, `app_name?`                                     | `bool`            | Re-check before uninstall                                     |
+| `kill_app`         | `bundle_id?`, `app_name?`                                     | `u32`             | SIGKILL all matching processes; wait for kernel to reap them  |
+| `get_app_size`     | `path`                                                        | `Option<u64>`     | Recursive `WalkDir` size; runs lazily when an app is selected |
+| `uninstall`        | `app_path`, `app_name`, `bundle_id?`, `related_paths`         | `UninstallReport` | Trash the app and the user-selected related items             |
+| `reveal_in_finder` | `path`                                                        | `()`              | Run `open -R <path>`                                          |
 
-Long-running commands (`list_apps`, `find_related`, `uninstall`) are async and emit `progress` events while they run. They take an `AppHandle` parameter so they can call `app.emit(...)`.
+Long-running commands (`list_apps`, `find_related`, `uninstall`) are async and emit `progress` events while they run. They take an `AppHandle` parameter so they can call `app.emit(...)`. Short commands (`is_app_running`, `kill_app`, `get_app_size`, `reveal_in_finder`) also use `spawn_blocking` to keep the IPC thread free, but do not emit progress events.
 
 ### Progress events
 
@@ -110,6 +116,35 @@ Tauri's IPC bridge is in-process, has no port to negotiate, runs entirely over O
 ## Threading and progress
 
 Each long-running command uses `tauri::async_runtime::spawn_blocking` for the `walkdir`/`sysinfo`/`trash` work and emits progress from the spawned task. The command itself awaits the task and returns the final value. This keeps the UI responsive without us having to write our own thread-pool code (the egui version did this manually in `ui/tasks.rs`).
+
+## Performance shape of `list_apps`
+
+`list_apps` is called on initial mount and every time the window regains focus, so it has to stay cheap. The per-app cost is bounded to:
+
+- one `read_dir` of `/Applications` and `~/Applications`,
+- one `Info.plist` parse,
+- one `metadata()` call for the modified-at timestamp,
+- one in-memory match against the sysinfo process snapshot.
+
+Anything that walks the *interior* of a bundle is forbidden from this path. That's why bundle size — which involves a recursive `WalkDir` and is catastrophic on Xcode-class apps — was extracted into the separate `get_app_size` command. The frontend's `useAppSize` hook fires it lazily when an app is selected and caches results by path so re-selecting is free. See `docs/TAURI_MIGRATION.md` for the post-mortem on the regression that prompted this design.
+
+## Kill-and-wait
+
+`kill_app` sends SIGKILL via `Process::kill()`, then polls a fresh `System::new_all()` every 50 ms (capped at 2 s) until the targeted PIDs disappear from the snapshot. SIGKILL is honoured by the kernel quickly but is observable through sysinfo only on the next refresh; returning before the processes are gone would mean the next `list_apps` call still reports them as running, leaving the Quit button visible and the warning banner up. Polling inside the command keeps the IPC contract simple — when `kill_app` resolves, the running state is genuinely current.
+
+## Refresh policy
+
+The frontend refreshes `list_apps` on three events:
+
+1. **Initial mount** — `useEffect` in `App.tsx`.
+2. **Manual refresh button** in the header.
+3. **Window focus** — `window.addEventListener("focus", …)`, gated on `!useAppsStore.getState().loading` so cmd-tabbing doesn't queue duplicate scans.
+
+Polling on a timer was considered and rejected: the only field that changes between refreshes is `running: bool`, the resource cost is non-trivial on large `/Applications` directories, and a polling refresh during the loading overlay (now removed) flashed visibly every cycle. Focus-refresh tracks the same state with no UI disruption.
+
+## External URLs
+
+The "Open GitHub" button in the header uses [`tauri-plugin-opener`](https://github.com/tauri-apps/plugins-workspace/tree/v2/plugins/opener)'s `openUrl` rather than `<a target="_blank">`. The Tauri webview has no tabs and `window.open` returns `null`, so a plain anchor link is silently dropped. The plugin hands the URL to `NSWorkspace -openURL:` (and the equivalent on Windows/Linux) so the user's default browser opens it. The capability in `capabilities/default.json` scopes `opener:allow-open-url` to `https://github.com/*` — wildcard scopes would let compromised JS open arbitrary URIs through the OS.
 
 ## Uninstall semantics (preserved from the egui version)
 
