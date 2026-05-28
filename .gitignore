@@ -1,5 +1,13 @@
 !CLAUDE.md
+
+# Build artifacts
+/dist
 /target
+/src-tauri/target
+/node_modules
+.tmp/
+
+# Editors / OS
 .idea
 *.iml
 *.log
@@ -11,3 +19,12 @@
 *.old
 *.orig
 *.rej
+
+# Bun / npm
+bun.lock
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Tauri-generated schema (regenerated on build)
+/src-tauri/gen

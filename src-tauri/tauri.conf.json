@@ -1,0 +1,45 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "App Uninstaller",
+  "version": "1.0.0",
+  "identifier": "day.nhanh.appuninstaller",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": "bun run dev",
+    "beforeBuildCommand": "bun run build"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "App Uninstaller",
+        "width": 1100,
+        "height": 820,
+        "minWidth": 960,
+        "minHeight": 820,
+        "resizable": true,
+        "fullscreen": false,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/icon.png",
+      "icons/icon.icns"
+    ],
+    "category": "Utility",
+    "shortDescription": "Uninstall macOS apps along with their related files.",
+    "longDescription": "App Uninstaller lists installed .app bundles, finds related support, cache, preference, and container files, and moves the user-selected items to the Trash.",
+    "copyright": "Copyright (c) 2026 An Nguyen",
+    "macOS": {
+      "minimumSystemVersion": "10.15",
+      "frameworks": []
+    }
+  }
+}

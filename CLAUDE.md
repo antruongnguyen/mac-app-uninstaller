@@ -70,113 +70,120 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 ## Project Overview
 
-A macOS-only desktop app written in Rust + egui that lists installed `.app` bundles, finds their related support/cache/preference files, and moves selected items to the Trash. The binary crate is `app_uninstaller` (Rust edition 2024).
+A macOS-only desktop app that lists installed `.app` bundles, finds their related support/cache/preference files, and moves selected items to the Trash. Built on **Tauri 2** with a **React + TypeScript + Tailwind v4 + shadcn/ui** frontend and a **Rust** backend.
+
+The original implementation used `eframe`/`egui`. See `docs/TAURI_MIGRATION.md` for the migration log and design decisions.
 
 ### Common Commands
 
-- Run (dev): `cargo run`
-- Build (debug / release): `cargo build` / `cargo build --release`
-- Format / Lint: `cargo fmt` / `cargo clippy`
-- Tests: `cargo test` (single test: `cargo test <name>`; with output: `cargo test -- --nocapture`)
-- Build `.app` bundle: `cargo bundle --release` → `target/release/bundle/osx/App Uninstaller.app` (requires `cargo install cargo-bundle`)
-- Regenerate `.icns` icons from SVG: `./svg-to-icns.sh` (requires `brew install librsvg`)
+| Task                        | Command                                                  |
+| --------------------------- | -------------------------------------------------------- |
+| Install dependencies        | `bun install`                                            |
+| Run dev shell               | `bun run tauri dev`                                      |
+| Run frontend only (browser) | `bun run dev` (no Tauri IPC; useful for UI iteration)    |
+| Build app bundle            | `bun run tauri build` → `src-tauri/target/release/bundle/macos/App Uninstaller.app` |
+| Vite build + tsc            | `bun run build`                                          |
+| Lint                        | `bun run lint`                                           |
+| Frontend tests              | `bun run test`                                           |
+| Rust tests                  | `cargo test --manifest-path src-tauri/Cargo.toml`        |
+| Format Rust                 | `cargo fmt --manifest-path src-tauri/Cargo.toml`         |
+| Clippy                      | `cargo clippy --manifest-path src-tauri/Cargo.toml`      |
+| Add a shadcn primitive      | `npx shadcn@latest add @shadcn/<name>` (e.g. `item`, `input-group`) |
+| Search shadcn registry      | `npx shadcn@latest search @shadcn -q "<query>"`          |
 
-Bundle metadata (name, identifier `day.nhanh.appuninstaller`, icon) lives in `Cargo.toml` under `[package.metadata.bundle]`.
+Bundle metadata (name, identifier `day.nhanh.appuninstaller`, icon, window size) lives in `src-tauri/tauri.conf.json`.
 
 ### Architecture
 
-The app is a single-window egui frontend that delegates all filesystem and process work to the `core` module via background threads. Understanding the threading boundary is key:
+The app has two halves that talk through Tauri's IPC:
 
-- **`main.rs`** — entry point. Sets the Dock icon (macOS) and launches `eframe::run_native` with `MacUninstallerApp`.
-- **`ui/mod.rs`** — `MacUninstallerApp` (eframe `App`) and `GuiState`. State is held in `Arc<Mutex<GuiState>>` and shared between the UI thread and worker threads. Communication from workers → UI happens through an `mpsc` channel of `ProgressUpdate` messages drained each frame in `update()`. Worker threads also write directly into `GuiState` (apps list, related paths, status messages) under the mutex.
-- **`ui/tasks.rs`** — the only place that spawns threads. Three entry points: `spawn_refresh_apps`, `spawn_refresh_related_for_selected`, `spawn_uninstall_selected`. Uninstall logic partitions related paths into "protected" (system locations like `/Library`, `/private`, `/System/...`) and "unprotected"; protected items are processed first and abort on first failure, unprotected items continue on per-item errors. After an uninstall the apps list is auto-refreshed.
-- **`core.rs`** — pure business logic (no UI deps): `find_app_bundles_progress`, `read_info_from_app` (parses `Contents/Info.plist`), `is_app_running` / `is_app_running_simple` (sysinfo-based heuristics across process name, exe path, and cmdline), `find_related_paths` (combines `common_paths_for_bundle_id` with a `walkdir` scan of user/system Library locations), and `move_to_trash_or_remove` (prefers `trash` crate, falls back to `fs::remove_*`).
-- **`ui/panels/`** — `top`, `side` (app list), `central` (selected app + related files checklist), `bottom` (progress + status log).
-- **`style.rs`** + **`ui/color.rs`** — centralized AppKit-like theming. `set_appkit_style(ctx)` is called every frame.
-- **`osx.rs`** — macOS-only AppKit calls (set Dock icon via `cocoa`/`objc`, open System Settings).
-- **`types.rs`** — `AppInfo`, `TaskKind` (`Idle | RefreshApps | RefreshRelated(idx) | Uninstall(idx)`), `ProgressUpdate`, `StateColors`.
+- **`src/`** — React frontend. Single window. State held in Zustand stores; long-running work is dispatched as Tauri commands and streamed back as `progress` events.
+- **`src-tauri/`** — Rust backend. `core/` holds pure logic (scan, plist, related-paths, trash, running-process detection). `commands.rs` exposes it through `#[tauri::command]` handlers. `progress.rs` defines the typed `progress` event channel.
 
-When adding a new background operation, follow the existing pattern: spawn a thread, clone the `progress_tx` sender, send a starting `ProgressUpdate { finished: false }`, do work, mutate `GuiState` under the lock, send a final `ProgressUpdate { finished: true }`. Do not block the UI thread on filesystem or `sysinfo` work.
+Front-to-back contract:
+
+| Command            | Args                                                  | Returns           | Emits `progress` events |
+| ------------------ | ----------------------------------------------------- | ----------------- | ----------------------- |
+| `list_apps`        | —                                                     | `AppInfo[]`       | yes (`refresh_apps`)    |
+| `find_related`     | `bundle_id?`, `app_name`                              | `string[]`        | yes (`find_related`)    |
+| `is_app_running`   | `bundle_id?`, `app_name?`                             | `boolean`         | no                      |
+| `kill_app`         | `bundle_id?`, `app_name?`                             | `number`          | no                      |
+| `get_app_size`     | `path`                                                | `number \| null`  | no                      |
+| `uninstall`        | `app_path`, `app_name`, `bundle_id?`, `related_paths` | `UninstallReport` | yes (`uninstall`)       |
+| `reveal_in_finder` | `path`                                                | `()`              | no                      |
+
+Long-running commands (`list_apps`, `find_related`, `uninstall`) run in `tauri::async_runtime::spawn_blocking` and emit `ProgressEvent { kind, progress, message, finished, error }` while they run. Short commands (`is_app_running`, `kill_app`, `get_app_size`, `reveal_in_finder`) also use `spawn_blocking` to keep the IPC thread free, but do not emit progress. The frontend subscribes once in `App.tsx` and routes events into `useTaskStore`.
+
+When adding a new background operation:
+1. Add a pure function in `src-tauri/src/core/` (no Tauri deps).
+2. Add a `#[tauri::command] async fn` in `src-tauri/src/commands.rs` that calls it inside `spawn_blocking`. Emit typed `progress` events only if the work is long enough that the user benefits from intermediate feedback.
+3. Register it in the `invoke_handler!` macro in `src-tauri/src/lib.rs`.
+4. Add a typed wrapper in `src/lib/api/uninstaller.ts` and the matching DTO in `src/types/models.ts` (Rust uses `#[serde(rename_all = "camelCase")]`).
+5. Compose the UI from existing shadcn primitives — only build a new component if shadcn doesn't have one. Add new primitives via `npx shadcn@latest add @shadcn/<name>` rather than hand-writing them.
+6. Give every interactive/structural element a stable id from `IDS` in `src/lib/styles.ts`. Repeated class strings go into `STYLES` in the same file.
 
 ### Conventions
 
-- Error handling: `anyhow::Result<T>` with `.context("...")?` for filesystem/plist operations.
+**Rust**
+- Error handling: `anyhow::Result<T>` with `.context("...")?` for filesystem/plist operations; commands return `Result<T, String>` (Tauri requires `Serialize` on the error).
 - Paths: always `PathBuf` / `Path`; check `exists()` before operations.
-- Dependencies pinned in `Cargo.toml`: eframe/egui 0.32, sysinfo 0.37, plist 1.7, trash 5.2, walkdir 2.5, anyhow 1.0, home 0.5; macOS-only: cocoa 0.26, objc 0.2.
-- macOS-specific code is gated by `#[cfg(target_os = "macos")]` (see `osx.rs` and `main.rs`).
+- Pure logic stays in `src-tauri/src/core/`. The `commands` and `progress` modules may depend on `tauri`; `core` may not.
+- macOS-specific code is gated by `#[cfg(target_os = "macos")]`. The trash + plist + sysinfo crates we use are cross-platform; only `reveal_in_finder` calls `open -R` directly.
+- `list_apps` must stay cheap — the per-app scan is bounded to `read_dir` + `Info.plist` parse + a sysinfo string match. Anything that walks the bundle interior (e.g. `compute_size` via `WalkDir`) is exposed as its own command and called lazily by the frontend when an app is selected, never during the scan. Re-adding such work to `scan_one_dir` produces multi-second freezes on machines with Xcode-class bundles.
 
-### Code Style Guidelines
+**Frontend**
+- Component library: shadcn/ui (`base-nova` style, `neutral` base color, lucide icons). Use shadcn primitives whenever possible — only build a custom component if a primitive does not exist. Add new primitives via the CLI (`npx shadcn@latest add @shadcn/<name>`); don't hand-write them.
+- Path alias: `@/*` → `./src/*`.
+- State: Zustand for cross-component state; local `useState` otherwise.
+- Tauri IPC: always go through `tauriInvoke` / `tauriListen` in `src/lib/tauri.ts`, never `invoke` / `listen` directly. The wrapper gives a clearer error when running outside the Tauri shell.
+- Toast notifications: `sonner` (via `@/components/ui/sonner`).
+- DTOs: defined in Rust (`src-tauri/src/models.rs`) and mirrored verbatim in `src/types/models.ts`. Keep field names in sync. Rust uses `#[serde(rename_all = "camelCase")]` so the TS interface uses camelCase.
+- IDs and shared styles: `src/lib/styles.ts` exports `IDS` (stable element ids — every interactive/structural element gets one) and `STYLES` (class strings used in more than one place). Per-row ids are generated via helpers (e.g. `IDS.sidebarAppRow(path)`). Local-only classes stay inline at the call site.
+- Hooks: cross-component hooks live in `src/hooks/`. Examples: `useIsTruncated` (mounts a tooltip only when `truncate` is actually clipping), `useAppSize` (lazy per-path size lookup with a process-wide cache).
 
 #### Imports
-- Group imports: std → external crates → local modules
-- Use explicit imports, avoid glob imports (`use crate::*`)
-- Example:
-```rust
-use std::{fs, path::PathBuf};
-use anyhow::{Context, Result};
-use walkdir::WalkDir;
-use crate::types::AppInfo;
-```
+- Group imports: std → external crates → local modules (Rust); React → external → `@/` (TS).
+- Use explicit imports, avoid glob imports.
 
-#### Naming Conventions
-- **Functions/structs**: snake_case (e.g., `find_app_bundles`)
-- **Types**: PascalCase (e.g., `AppInfo`, `TaskKind`)
-- **Constants**: SCREAMING_SNAKE_CASE
-- **Modules**: snake_case
+#### Naming
+- Rust: `snake_case` functions, `PascalCase` types, `SCREAMING_SNAKE_CASE` constants.
+- TypeScript: `camelCase` variables/functions, `PascalCase` components/types, `SCREAMING_SNAKE_CASE` constants.
 
-#### Error Handling
-- Use `anyhow::Result<T>` for return types
-- Use `Context` for error messages: `.context("descriptive message")?`
-- Prefer early returns with `?` operator
-- Example: `let data = fs::read_to_string(path).context("Failed to read file")?`
-
-#### Documentation
-- Use `//!` for module-level documentation
-- Use `///` for public functions/structs
-- Keep documentation concise and descriptive
-
-#### Code Structure
-- Use `#[derive(Clone, Debug)]` for data structures
-- Use `#[allow(dead_code)]` for enums with potentially unused variants
-- Prefer explicit types over inference for public APIs
-- Use meaningful variable names (avoid single letters except in loops)
-
-#### Safety & Best Practices
-- Use `PathBuf` for path handling
-- Validate file existence before operations
-- Handle permissions gracefully with proper error messages
-- Use `trash` crate for safe file deletion (moves to Trash)
-- Check running processes before attempting uninstallation
-
-#### Dependencies
-- eframe/egui: GUI framework
-- sysinfo: System information and process checking
-- plist: macOS property list parsing
-- trash: Safe file deletion
-- walkdir: Directory traversal
-- anyhow: Error handling
+#### Theming & fonts
+- Light/dark themes via `next-themes` and `oklch()` tokens in `src/index.css`. Do not introduce new colour variables — extend the existing token block.
+- Font: Geist Variable, loaded via `@fontsource-variable/geist` (self-hosted, cacheable). Don't link to Google Fonts CDN at runtime.
 
 ### Documentation & Version Lookup
 
-**IMPORTANT**: Before making changes to any framework or library usage, always use MCP server Context7 to lookup the latest documentation and versions:
+**IMPORTANT**: Before making changes to any framework or library usage, use MCP server Context7 to look up the latest documentation and versions.
 
-#### Core Dependencies to Check:
-- **eframe** (current: 0.32) - GUI framework
-- **egui** (current: 0.32) - Immediate mode GUI
-- **sysinfo** (current: 0.37) - System information and process checking
-- **plist** (current: 1.7) - macOS property list parsing
-- **trash** (current: 5.2) - Safe file deletion
-- **home** (current: 0.5) - Cross-platform home directory detection
-- **anyhow** (current: 1.0) - Error handling
-- **walkdir** (current: 2.5) - Directory traversal
+#### Core dependencies to verify before changing usage
 
-#### macOS-Specific Dependencies:
-- **cocoa** (current: 0.26) - macOS Cocoa framework bindings
-- **objc** (current: 0.2) - Objective-C runtime bindings
+- **Tauri** (current: 2.10.x) — desktop shell + IPC
+- **Tauri plugins** — `tauri-plugin-dialog`, `tauri-plugin-log`
+- **React 19** + **React DOM 19**
+- **Vite 8** + **@vitejs/plugin-react 6**
+- **Tailwind CSS 4** (`@tailwindcss/vite`)
+- **shadcn/ui** (style: `base-nova`, base color: `neutral`)
+- **@base-ui/react** — primitives the shadcn components wrap
+- **lucide-react** — icon set
+- **next-themes** — light/dark switching
+- **sonner** — toasts
+- **zustand** — state management
 
-#### Usage Instructions:
-1. Lookup latest docs/versions via Context7 before changing framework usage
-2. Review breaking changes and migration guides
-3. Update Cargo.toml with latest compatible versions
-4. Test thoroughly after dependency updates
-5. Update this document with new version numbers after successful upgrades
+#### Rust crates retained from the original implementation
+
+- **plist 1.7** — `Info.plist` parsing
+- **trash 5.2** — safe file deletion (moves to Trash)
+- **walkdir 2.5** — directory traversal
+- **sysinfo 0.37** — process listing
+- **home 0.5** — home directory detection
+- **anyhow 1.0** — error handling
+
+#### Usage instructions
+
+1. Look up latest docs/versions via Context7 before changing framework usage.
+2. Review breaking changes and migration guides.
+3. Update `package.json` / `src-tauri/Cargo.toml` with latest compatible versions.
+4. Test thoroughly after dependency updates.
+5. Update this document with new version numbers after successful upgrades.
