@@ -1,5 +1,9 @@
 # macOS App Uninstaller (Tauri + React)
 
+<p align="center">
+  <img src="./docs/resources/screenshot-v1.1.0.png" alt="Screenshot of the app showing a list of installed applications and their related files, with options to select and uninstall them.">
+</p>
+
 A lightweight macOS desktop app that lets you:
 
 - List all `.app` bundles installed in `/Applications` and `~/Applications`.
