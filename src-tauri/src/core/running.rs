@@ -21,7 +21,22 @@ use std::{
     thread::sleep,
     time::Duration,
 };
-use sysinfo::{Pid, Process, System};
+use sysinfo::{
+    Pid, Process, ProcessRefreshKind, ProcessesToUpdate, RefreshKind, System, UpdateKind,
+};
+
+/// Build a `System` populated only with the process fields `process_matches`
+/// reads: `name` (always available), `exe`, and `cmd`. Skipping memory, CPU,
+/// disks, networks, users, env, cwd, etc. cuts both the work the OS does to
+/// fill the snapshot and the RAM the snapshot occupies.
+fn process_only_snapshot() -> System {
+    let kind = RefreshKind::nothing().with_processes(
+        ProcessRefreshKind::nothing()
+            .with_exe(UpdateKind::OnlyIfNotSet)
+            .with_cmd(UpdateKind::OnlyIfNotSet),
+    );
+    System::new_with_specifics(kind)
+}
 
 /// Lowercased keys derived from a (bundle_path, bundle_id, app_name,
 /// executable) tuple, computed once and reused across all process matches.
@@ -173,8 +188,7 @@ pub fn is_app_running_simple(
     bundle_id: Option<&str>,
     app_name: Option<&str>,
 ) -> bool {
-    let mut sys = System::new_all();
-    sys.refresh_all();
+    let sys = process_only_snapshot();
     is_app_running(&sys, bundle_path, bundle_id, app_name, None)
 }
 
@@ -190,8 +204,7 @@ pub fn kill_app(
     bundle_id: Option<&str>,
     app_name: Option<&str>,
 ) -> u32 {
-    let mut sys = System::new_all();
-    sys.refresh_all();
+    let mut sys = process_only_snapshot();
     let keys = MatchKeys::new(bundle_path, bundle_id, app_name, None);
 
     let mut targets: Vec<Pid> = Vec::new();
@@ -212,13 +225,18 @@ pub fn kill_app(
 
     // Poll until the targeted PIDs disappear from the snapshot, or we hit the
     // budget. SIGKILL is honoured by the kernel quickly but is observable
-    // through sysinfo only on the next refresh.
+    // through sysinfo only on the next refresh. We reuse `sys` and refresh
+    // with `ProcessRefreshKind::nothing()` — we only need the live PID set,
+    // not any per-process detail — so each iteration is cheap.
     let deadline = std::time::Instant::now() + Duration::from_millis(2000);
     loop {
         sleep(Duration::from_millis(50));
-        let mut probe = System::new_all();
-        probe.refresh_all();
-        let still_alive = probe.processes().keys().any(|pid| targets.contains(pid));
+        sys.refresh_processes_specifics(
+            ProcessesToUpdate::All,
+            true,
+            ProcessRefreshKind::nothing(),
+        );
+        let still_alive = sys.processes().keys().any(|pid| targets.contains(pid));
         if !still_alive || std::time::Instant::now() >= deadline {
             break;
         }

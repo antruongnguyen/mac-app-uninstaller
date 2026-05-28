@@ -3,7 +3,7 @@
 use anyhow::{Context, Result};
 use home::home_dir;
 use std::{fs, path::PathBuf};
-use sysinfo::System;
+use sysinfo::{ProcessRefreshKind, RefreshKind, System, UpdateKind};
 use walkdir::WalkDir;
 
 use super::{plist_info::read_info_from_app, running::is_app_running};
@@ -29,8 +29,15 @@ where
     let candidates = candidate_app_dirs();
     let total = candidates.len().max(1);
 
-    let mut sys = System::new_all();
-    sys.refresh_all();
+    // Collect process metadata once for the whole scan. Restrict the snapshot
+    // to the fields `is_app_running` reads (exe path + cmdline) so we don't
+    // pull in CPU/memory/disks/networks/users for every process on the box.
+    let kind = RefreshKind::nothing().with_processes(
+        ProcessRefreshKind::nothing()
+            .with_exe(UpdateKind::OnlyIfNotSet)
+            .with_cmd(UpdateKind::OnlyIfNotSet),
+    );
+    let sys = System::new_with_specifics(kind);
 
     let mut res = Vec::new();
     for (idx, dir) in candidates.into_iter().enumerate() {
