@@ -1,1 +1,13 @@
+!CLAUDE.md
 /target
+.idea
+*.iml
+*.log
+*.tmp
+.DS_Store
+*.swp
+*.swo
+*.bak
+*.old
+*.orig
+*.rej

@@ -13,7 +13,6 @@ use crate::style::set_appkit_style;
 use crate::types::{AppInfo, ProgressUpdate, TaskKind};
 
 pub mod color;
-pub mod components;
 pub mod panels;
 
 /// Shared UI state synchronized across UI thread and worker threads.
