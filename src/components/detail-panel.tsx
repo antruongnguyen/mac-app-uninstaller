@@ -34,7 +34,11 @@ import {
   RotateCwIcon,
   Trash2Icon,
 } from "lucide-react";
-import { useAppsStore, useRelatedStore, useTaskStore } from "@/stores/uninstaller";
+import {
+  useAppsStore,
+  useRelatedStore,
+  useTaskStore,
+} from "@/stores/uninstaller";
 import { uninstallerApi } from "@/lib/api/uninstaller";
 import { UninstallConfirm } from "@/components/uninstall-confirm";
 import { toast } from "sonner";
@@ -107,14 +111,15 @@ export function DetailPanel() {
     if (!app) return;
     setQuitOpen(false);
     try {
-      const killed = await uninstallerApi.killApp(app.name, app.bundleId);
+      const killed = await uninstallerApi.killApp(
+        app.path,
+        app.name,
+        app.bundleId,
+      );
       if (killed > 0) {
-        toast.success(
-          `Quit ${app.name}`,
-          {
-            description: `Sent SIGKILL to ${killed} process${killed === 1 ? "" : "es"}.`,
-          },
-        );
+        toast.success(`Quit ${app.name}`, {
+          description: `Sent SIGKILL to ${killed} process${killed === 1 ? "" : "es"}.`,
+        });
       } else {
         toast.warning(`No processes matched ${app.name}`);
       }
@@ -125,7 +130,10 @@ export function DetailPanel() {
   }
 
   return (
-    <div id={IDS.detail} className="flex h-full flex-col gap-4 overflow-hidden p-4">
+    <div
+      id={IDS.detail}
+      className="flex h-full flex-col gap-4 overflow-hidden p-4"
+    >
       <AppCard
         app={app}
         size={size}
@@ -185,10 +193,7 @@ export function DetailPanel() {
                   </span>
                 </span>
               </label>
-              <ScrollArea
-                id={IDS.relatedList}
-                className={STYLES.flexFillList}
-              >
+              <ScrollArea id={IDS.relatedList} className={STYLES.flexFillList}>
                 <ul className="flex flex-col">
                   {related.paths.map((path) => (
                     <PathRow
@@ -392,11 +397,7 @@ function PathRow({
       id={IDS.relatedRow(path)}
       className={cn("flex items-center gap-2 px-2 py-1", STYLES.rowHover)}
     >
-      <Checkbox
-        id={checkboxId}
-        checked={checked}
-        onCheckedChange={onToggle}
-      />
+      <Checkbox id={checkboxId} checked={checked} onCheckedChange={onToggle} />
       <Tooltip>
         <TooltipTrigger
           render={

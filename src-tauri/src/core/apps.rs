@@ -57,7 +57,13 @@ fn scan_one_dir(sys: &System, dir: &std::path::Path) -> Result<Vec<AppInfo>> {
         let p = e.path();
         if p.extension().and_then(|s| s.to_str()) == Some("app") {
             let info = read_info_from_app(&p).unwrap_or_default();
-            let running = is_app_running(sys, info.bundle_id.as_deref(), info.bundle_name.as_deref());
+            let running = is_app_running(
+                sys,
+                Some(&p),
+                info.bundle_id.as_deref(),
+                info.bundle_name.as_deref(),
+                info.executable.as_deref(),
+            );
             let modified_at = e
                 .metadata()
                 .ok()

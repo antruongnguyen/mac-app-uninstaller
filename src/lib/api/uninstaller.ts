@@ -7,11 +7,14 @@ export const uninstallerApi = {
   findRelated: (appName: string, bundleId: string | null) =>
     tauriInvoke<string[]>("find_related", { bundleId, appName }),
 
-  isAppRunning: (appName: string | null, bundleId: string | null) =>
-    tauriInvoke<boolean>("is_app_running", { bundleId, appName }),
+  isAppRunning: (
+    appPath: string | null,
+    appName: string | null,
+    bundleId: string | null,
+  ) => tauriInvoke<boolean>("is_app_running", { appPath, bundleId, appName }),
 
-  killApp: (appName: string, bundleId: string | null) =>
-    tauriInvoke<number>("kill_app", { bundleId, appName }),
+  killApp: (appPath: string | null, appName: string, bundleId: string | null) =>
+    tauriInvoke<number>("kill_app", { appPath, bundleId, appName }),
 
   getAppSize: (path: string) =>
     tauriInvoke<number | null>("get_app_size", { path }),
@@ -29,5 +32,6 @@ export const uninstallerApi = {
       relatedPaths,
     }),
 
-  revealInFinder: (path: string) => tauriInvoke<void>("reveal_in_finder", { path }),
+  revealInFinder: (path: string) =>
+    tauriInvoke<void>("reveal_in_finder", { path }),
 };

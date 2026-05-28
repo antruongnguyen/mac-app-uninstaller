@@ -11,6 +11,7 @@ Behavioral guidelines to reduce common LLM coding mistakes. **Tradeoff:** These 
 **Don't assume. Don't hide confusion. Surface tradeoffs.**
 
 Before implementing:
+
 - State your assumptions explicitly. If uncertain, ask.
 - If multiple interpretations exist, present them - don't pick silently.
 - If a simpler approach exists, say so. Push back when warranted.
@@ -33,12 +34,14 @@ Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, sim
 **Touch only what you must. Clean up only your own mess.**
 
 When editing existing code:
+
 - Don't "improve" adjacent code, comments, or formatting.
 - Don't refactor things that aren't broken.
 - Match existing style, even if you'd do it differently.
 - If you notice unrelated dead code, mention it - don't delete it.
 
 When your changes create orphans:
+
 - Remove imports/variables/functions that YOUR changes made unused.
 - Don't remove pre-existing dead code unless asked.
 
@@ -49,11 +52,13 @@ The test: Every changed line should trace directly to the user's request.
 **Define success criteria. Loop until verified.**
 
 Transform tasks into verifiable goals:
+
 - "Add validation" → "Write tests for invalid inputs, then make them pass"
 - "Fix the bug" → "Write a test that reproduces it, then make it pass"
 - "Refactor X" → "Ensure tests pass before and after"
 
 For multi-step tasks, state a brief plan:
+
 ```
 1. [Step] → verify: [check]
 2. [Step] → verify: [check]
@@ -76,20 +81,20 @@ The original implementation used `eframe`/`egui`. See `docs/TAURI_MIGRATION.md` 
 
 ### Common Commands
 
-| Task                        | Command                                                  |
-| --------------------------- | -------------------------------------------------------- |
-| Install dependencies        | `bun install`                                            |
-| Run dev shell               | `bun run tauri dev`                                      |
-| Run frontend only (browser) | `bun run dev` (no Tauri IPC; useful for UI iteration)    |
+| Task                        | Command                                                                             |
+| --------------------------- | ----------------------------------------------------------------------------------- |
+| Install dependencies        | `bun install`                                                                       |
+| Run dev shell               | `bun run tauri dev`                                                                 |
+| Run frontend only (browser) | `bun run dev` (no Tauri IPC; useful for UI iteration)                               |
 | Build app bundle            | `bun run tauri build` → `src-tauri/target/release/bundle/macos/App Uninstaller.app` |
-| Vite build + tsc            | `bun run build`                                          |
-| Lint                        | `bun run lint`                                           |
-| Frontend tests              | `bun run test`                                           |
-| Rust tests                  | `cargo test --manifest-path src-tauri/Cargo.toml`        |
-| Format Rust                 | `cargo fmt --manifest-path src-tauri/Cargo.toml`         |
-| Clippy                      | `cargo clippy --manifest-path src-tauri/Cargo.toml`      |
-| Add a shadcn primitive      | `npx shadcn@latest add @shadcn/<name>` (e.g. `item`, `input-group`) |
-| Search shadcn registry      | `npx shadcn@latest search @shadcn -q "<query>"`          |
+| Vite build + tsc            | `bun run build`                                                                     |
+| Lint                        | `bun run lint`                                                                      |
+| Frontend tests              | `bun run test`                                                                      |
+| Rust tests                  | `cargo test --manifest-path src-tauri/Cargo.toml`                                   |
+| Format Rust                 | `cargo fmt --manifest-path src-tauri/Cargo.toml`                                    |
+| Clippy                      | `cargo clippy --manifest-path src-tauri/Cargo.toml`                                 |
+| Add a shadcn primitive      | `npx shadcn@latest add @shadcn/<name>` (e.g. `item`, `input-group`)                 |
+| Search shadcn registry      | `npx shadcn@latest search @shadcn -q "<query>"`                                     |
 
 Bundle metadata (name, identifier `day.nhanh.appuninstaller`, icon, window size) lives in `src-tauri/tauri.conf.json`.
 
@@ -106,8 +111,8 @@ Front-to-back contract:
 | ------------------ | ----------------------------------------------------- | ----------------- | ----------------------- |
 | `list_apps`        | —                                                     | `AppInfo[]`       | yes (`refresh_apps`)    |
 | `find_related`     | `bundle_id?`, `app_name`                              | `string[]`        | yes (`find_related`)    |
-| `is_app_running`   | `bundle_id?`, `app_name?`                             | `boolean`         | no                      |
-| `kill_app`         | `bundle_id?`, `app_name?`                             | `number`          | no                      |
+| `is_app_running`   | `app_path?`, `bundle_id?`, `app_name?`                | `boolean`         | no                      |
+| `kill_app`         | `app_path?`, `bundle_id?`, `app_name?`                | `number`          | no                      |
 | `get_app_size`     | `path`                                                | `number \| null`  | no                      |
 | `uninstall`        | `app_path`, `app_name`, `bundle_id?`, `related_paths` | `UninstallReport` | yes (`uninstall`)       |
 | `reveal_in_finder` | `path`                                                | `()`              | no                      |
@@ -115,6 +120,7 @@ Front-to-back contract:
 Long-running commands (`list_apps`, `find_related`, `uninstall`) run in `tauri::async_runtime::spawn_blocking` and emit `ProgressEvent { kind, progress, message, finished, error }` while they run. Short commands (`is_app_running`, `kill_app`, `get_app_size`, `reveal_in_finder`) also use `spawn_blocking` to keep the IPC thread free, but do not emit progress. The frontend subscribes once in `App.tsx` and routes events into `useTaskStore`.
 
 When adding a new background operation:
+
 1. Add a pure function in `src-tauri/src/core/` (no Tauri deps).
 2. Add a `#[tauri::command] async fn` in `src-tauri/src/commands.rs` that calls it inside `spawn_blocking`. Emit typed `progress` events only if the work is long enough that the user benefits from intermediate feedback.
 3. Register it in the `invoke_handler!` macro in `src-tauri/src/lib.rs`.
@@ -125,6 +131,7 @@ When adding a new background operation:
 ### Conventions
 
 **Rust**
+
 - Error handling: `anyhow::Result<T>` with `.context("...")?` for filesystem/plist operations; commands return `Result<T, String>` (Tauri requires `Serialize` on the error).
 - Paths: always `PathBuf` / `Path`; check `exists()` before operations.
 - Pure logic stays in `src-tauri/src/core/`. The `commands` and `progress` modules may depend on `tauri`; `core` may not.
@@ -132,6 +139,7 @@ When adding a new background operation:
 - `list_apps` must stay cheap — the per-app scan is bounded to `read_dir` + `Info.plist` parse + a sysinfo string match. Anything that walks the bundle interior (e.g. `compute_size` via `WalkDir`) is exposed as its own command and called lazily by the frontend when an app is selected, never during the scan. Re-adding such work to `scan_one_dir` produces multi-second freezes on machines with Xcode-class bundles.
 
 **Frontend**
+
 - Component library: shadcn/ui (`base-nova` style, `neutral` base color, lucide icons). Use shadcn primitives whenever possible — only build a custom component if a primitive does not exist. Add new primitives via the CLI (`npx shadcn@latest add @shadcn/<name>`); don't hand-write them.
 - Path alias: `@/*` → `./src/*`.
 - State: Zustand for cross-component state; local `useState` otherwise.
@@ -142,14 +150,17 @@ When adding a new background operation:
 - Hooks: cross-component hooks live in `src/hooks/`. Examples: `useIsTruncated` (mounts a tooltip only when `truncate` is actually clipping), `useAppSize` (lazy per-path size lookup with a process-wide cache).
 
 #### Imports
+
 - Group imports: std → external crates → local modules (Rust); React → external → `@/` (TS).
 - Use explicit imports, avoid glob imports.
 
 #### Naming
+
 - Rust: `snake_case` functions, `PascalCase` types, `SCREAMING_SNAKE_CASE` constants.
 - TypeScript: `camelCase` variables/functions, `PascalCase` components/types, `SCREAMING_SNAKE_CASE` constants.
 
 #### Theming & fonts
+
 - Light/dark themes via `next-themes` and `oklch()` tokens in `src/index.css`. Do not introduce new colour variables — extend the existing token block.
 - Font: Geist Variable, loaded via `@fontsource-variable/geist` (self-hosted, cacheable). Don't link to Google Fonts CDN at runtime.
 

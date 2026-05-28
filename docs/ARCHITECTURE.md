@@ -80,15 +80,15 @@ All cross-process communication happens through three things:
 
 ### Commands
 
-| Command            | Args                                                          | Returns           | Purpose                                                       |
-| ------------------ | ------------------------------------------------------------- | ----------------- | ------------------------------------------------------------- |
-| `list_apps`        | none                                                          | `Vec<AppInfo>`    | Scan `/Applications` and `~/Applications`                     |
-| `find_related`     | `bundle_id?`, `app_name`                                      | `Vec<String>`     | Walk Library locations, return related paths                  |
-| `is_app_running`   | `bundle_id?`, `app_name?`                                     | `bool`            | Re-check before uninstall                                     |
-| `kill_app`         | `bundle_id?`, `app_name?`                                     | `u32`             | SIGKILL all matching processes; wait for kernel to reap them  |
-| `get_app_size`     | `path`                                                        | `Option<u64>`     | Recursive `WalkDir` size; runs lazily when an app is selected |
-| `uninstall`        | `app_path`, `app_name`, `bundle_id?`, `related_paths`         | `UninstallReport` | Trash the app and the user-selected related items             |
-| `reveal_in_finder` | `path`                                                        | `()`              | Run `open -R <path>`                                          |
+| Command            | Args                                                  | Returns           | Purpose                                                       |
+| ------------------ | ----------------------------------------------------- | ----------------- | ------------------------------------------------------------- |
+| `list_apps`        | none                                                  | `Vec<AppInfo>`    | Scan `/Applications` and `~/Applications`                     |
+| `find_related`     | `bundle_id?`, `app_name`                              | `Vec<String>`     | Walk Library locations, return related paths                  |
+| `is_app_running`   | `app_path?`, `bundle_id?`, `app_name?`                | `bool`            | Re-check before uninstall                                     |
+| `kill_app`         | `app_path?`, `bundle_id?`, `app_name?`                | `u32`             | SIGKILL all matching processes; wait for kernel to reap them  |
+| `get_app_size`     | `path`                                                | `Option<u64>`     | Recursive `WalkDir` size; runs lazily when an app is selected |
+| `uninstall`        | `app_path`, `app_name`, `bundle_id?`, `related_paths` | `UninstallReport` | Trash the app and the user-selected related items             |
+| `reveal_in_finder` | `path`                                                | `()`              | Run `open -R <path>`                                          |
 
 Long-running commands (`list_apps`, `find_related`, `uninstall`) are async and emit `progress` events while they run. They take an `AppHandle` parameter so they can call `app.emit(...)`. Short commands (`is_app_running`, `kill_app`, `get_app_size`, `reveal_in_finder`) also use `spawn_blocking` to keep the IPC thread free, but do not emit progress events.
 
@@ -126,11 +126,19 @@ Each long-running command uses `tauri::async_runtime::spawn_blocking` for the `w
 - one `metadata()` call for the modified-at timestamp,
 - one in-memory match against the sysinfo process snapshot.
 
-Anything that walks the *interior* of a bundle is forbidden from this path. That's why bundle size — which involves a recursive `WalkDir` and is catastrophic on Xcode-class apps — was extracted into the separate `get_app_size` command. The frontend's `useAppSize` hook fires it lazily when an app is selected and caches results by path so re-selecting is free. See `docs/TAURI_MIGRATION.md` for the post-mortem on the regression that prompted this design.
+Anything that walks the _interior_ of a bundle is forbidden from this path. That's why bundle size — which involves a recursive `WalkDir` and is catastrophic on Xcode-class apps — was extracted into the separate `get_app_size` command. The frontend's `useAppSize` hook fires it lazily when an app is selected and caches results by path so re-selecting is free. See `docs/TAURI_MIGRATION.md` for the post-mortem on the regression that prompted this design.
 
 ## Kill-and-wait
 
 `kill_app` sends SIGKILL via `Process::kill()`, then polls a fresh `System::new_all()` every 50 ms (capped at 2 s) until the targeted PIDs disappear from the snapshot. SIGKILL is honoured by the kernel quickly but is observable through sysinfo only on the next refresh; returning before the processes are gone would mean the next `list_apps` call still reports them as running, leaving the Quit button visible and the warning banner up. Polling inside the command keeps the IPC contract simple — when `kill_app` resolves, the running state is genuinely current.
+
+## Running detection
+
+`is_app_running` (called once per scanned app, against a single shared `System` snapshot) decides whether any process belongs to a given `.app`. The match is **path-based**: a process belongs to an app iff `proc.exe()` starts with the bundle path (e.g. `/Applications/Claude.app`). macOS spawns app processes from `<bundle>/Contents/MacOS/`, so this is unambiguous and immune to name collisions — the `claude` CLI cannot be misattributed to `Claude.app` even though both share the executable name "Claude".
+
+When `proc.exe()` is unreadable (rare, mostly kernel/system processes the user can't inspect), the matcher falls back to the same `Info.plist`-keyed heuristics the egui port used: `CFBundleExecutable` / `CFBundleName` / `CFBundleIdentifier` against `proc.name()` and the cmdline, with bundle-id matches constrained to path boundaries (`/<bid>/`, `/<bid>.app`, `=<bid>`) so a `log show --predicate 'subsystem == "com.apple.com.foo"'` invocation isn't attributed to that app. The fallback only fires when there is no exe path to disambiguate, so it cannot override a real path mismatch.
+
+The bundle path is plumbed through every entry point — the scan-time call (`apps.rs::scan_one_dir`), the on-demand `is_app_running` Tauri command, the pre-uninstall guard, and `kill_app`. They all use the same `process_matches` predicate, so the running indicator, the uninstall guard, and SIGKILL targeting can never disagree.
 
 ## Refresh policy
 

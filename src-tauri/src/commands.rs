@@ -105,11 +105,16 @@ pub async fn find_related(
 
 #[tauri::command]
 pub async fn is_app_running(
+    app_path: Option<PathBuf>,
     bundle_id: Option<String>,
     app_name: Option<String>,
 ) -> Result<bool, String> {
     let result = tauri::async_runtime::spawn_blocking(move || {
-        core::is_app_running_simple(bundle_id.as_deref(), app_name.as_deref())
+        core::is_app_running_simple(
+            app_path.as_deref(),
+            bundle_id.as_deref(),
+            app_name.as_deref(),
+        )
     })
     .await
     .map_err(|e| e.to_string())?;
@@ -120,11 +125,16 @@ pub async fn is_app_running(
 /// number of processes that were killed.
 #[tauri::command]
 pub async fn kill_app(
+    app_path: Option<PathBuf>,
     bundle_id: Option<String>,
     app_name: Option<String>,
 ) -> Result<u32, String> {
     let killed = tauri::async_runtime::spawn_blocking(move || {
-        core::kill_app(bundle_id.as_deref(), app_name.as_deref())
+        core::kill_app(
+            app_path.as_deref(),
+            bundle_id.as_deref(),
+            app_name.as_deref(),
+        )
     })
     .await
     .map_err(|e| e.to_string())?;
@@ -183,7 +193,7 @@ fn run_uninstall(
         None,
     );
 
-    if core::is_app_running_simple(bundle_id.as_deref(), Some(&app_name)) {
+    if core::is_app_running_simple(Some(&app_path), bundle_id.as_deref(), Some(&app_name)) {
         let err = "App is running. Abort uninstall.".to_string();
         emit_progress(0.0, err.clone(), true, Some(err.clone()));
         return Err(err);
