@@ -12,43 +12,33 @@ import { uninstallerApi } from "@/lib/api/uninstaller";
 const sizeCache = new Map<string, number | null>();
 
 export function useAppSize(path: string | null) {
-  const [size, setSize] = useState<number | null>(() =>
-    path ? (sizeCache.get(path) ?? null) : null,
-  );
-  const [loading, setLoading] = useState(false);
+  // `tick` is bumped whenever a fetch completes, so a re-render picks up the
+  // new cached value. `size` and `loading` are otherwise derived from `path`
+  // + the cache during render, avoiding setState-in-effect entirely.
+  const [, bumpTick] = useState(0);
   const requestId = useRef(0);
 
   useEffect(() => {
-    if (!path) {
-      setSize(null);
-      setLoading(false);
-      return;
-    }
-
-    if (sizeCache.has(path)) {
-      setSize(sizeCache.get(path) ?? null);
-      setLoading(false);
-      return;
-    }
+    if (!path || sizeCache.has(path)) return;
 
     const id = ++requestId.current;
-    setLoading(true);
-    setSize(null);
 
     uninstallerApi
       .getAppSize(path)
       .then((value) => {
         sizeCache.set(path, value);
         if (id !== requestId.current) return; // newer selection won; drop stale result
-        setSize(value);
-        setLoading(false);
+        bumpTick((n) => n + 1);
       })
       .catch(() => {
         if (id !== requestId.current) return;
-        setSize(null);
-        setLoading(false);
+        sizeCache.set(path, null);
+        bumpTick((n) => n + 1);
       });
   }, [path]);
 
-  return { size, loading };
+  if (!path) return { size: null, loading: false };
+  if (sizeCache.has(path))
+    return { size: sizeCache.get(path) ?? null, loading: false };
+  return { size: null, loading: true };
 }

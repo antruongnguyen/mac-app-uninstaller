@@ -26,17 +26,20 @@ pub fn find_related_paths(bundle_id: Option<&str>, app_name: Option<&str>) -> Ve
         ];
         for lib in libs {
             if lib.exists() && lib.is_dir() {
-                for entry in WalkDir::new(&lib).max_depth(2).min_depth(1) {
-                    if let Ok(ent) = entry {
-                        if let Some(fname) = ent.file_name().to_str() {
-                            if let Some(bid) = bundle_id {
-                                if fname.to_lowercase().contains(&bid.to_lowercase()) {
-                                    res.push(ent.path().to_path_buf());
-                                }
-                            }
-                            if fname.to_lowercase().contains(&name.to_lowercase()) {
+                for ent in WalkDir::new(&lib)
+                    .max_depth(2)
+                    .min_depth(1)
+                    .into_iter()
+                    .flatten()
+                {
+                    if let Some(fname) = ent.file_name().to_str() {
+                        if let Some(bid) = bundle_id {
+                            if fname.to_lowercase().contains(&bid.to_lowercase()) {
                                 res.push(ent.path().to_path_buf());
                             }
+                        }
+                        if fname.to_lowercase().contains(&name.to_lowercase()) {
+                            res.push(ent.path().to_path_buf());
                         }
                     }
                 }
