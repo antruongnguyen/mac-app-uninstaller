@@ -16,7 +16,6 @@ tauri-build = { version = "2.5.6", features = [] }
 
 [dependencies]
 tauri = { version = "2.10.3", features = [] }
-tauri-plugin-dialog = "2"
 tauri-plugin-log = "2"
 tauri-plugin-opener = "2"
 serde = { version = "1.0", features = ["derive"] }
@@ -28,3 +27,14 @@ plist = "1.7"
 trash = "5.2"
 walkdir = "2.5"
 sysinfo = "0.37"
+
+# Optimise release binary size. `opt-level = "z"` favours size over speed,
+# `lto` strips dead code across crate boundaries, `codegen-units = 1` lets
+# the linker inline more aggressively, `panic = "abort"` drops the unwinding
+# tables, `strip = true` removes debug symbols from the final binary.
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
