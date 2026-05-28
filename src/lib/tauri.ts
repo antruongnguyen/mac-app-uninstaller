@@ -10,7 +10,10 @@ function isInsideTauri(): boolean {
  * browser (`bun run dev` without `tauri dev`). All commands require the
  * desktop shell, so there is no dev-mode fallback.
  */
-export async function tauriInvoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+export async function tauriInvoke<T>(
+  cmd: string,
+  args?: Record<string, unknown>,
+): Promise<T> {
   if (!isInsideTauri() && import.meta.env.DEV) {
     throw new Error(
       `Tauri IPC not available in browser. Command "${cmd}" requires the Tauri desktop shell. Run with: bun run tauri dev`,

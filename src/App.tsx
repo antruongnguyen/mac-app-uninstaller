@@ -4,7 +4,11 @@ import { Toaster } from "@/components/ui/sonner";
 import { Header } from "@/components/header";
 import { AppsSidebar } from "@/components/apps-sidebar";
 import { DetailPanel } from "@/components/detail-panel";
-import { useAppsStore, useRelatedStore, useTaskStore } from "@/stores/uninstaller";
+import {
+  useAppsStore,
+  useRelatedStore,
+  useTaskStore,
+} from "@/stores/uninstaller";
 import { tauriListen } from "@/lib/tauri";
 import { IDS } from "@/lib/styles";
 import type { AppInfo, ProgressEvent } from "@/types/models";

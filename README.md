@@ -47,16 +47,16 @@ mac_uninstaller/
 
 ## Common commands
 
-| Task                       | Command                                                  |
-| -------------------------- | -------------------------------------------------------- |
-| Install dependencies       | `bun install`                                            |
-| Run dev shell (recommended)| `bun run tauri dev`                                      |
-| Run frontend only (browser)| `bun run dev` (no Tauri IPC available)                   |
-| Build production bundle    | `bun run tauri build` → `src-tauri/target/release/bundle/macos/App Uninstaller.app` |
-| Type-check + Vite build    | `bun run build`                                          |
-| Lint                       | `bun run lint`                                           |
-| Run frontend tests         | `bun run test`                                           |
-| Run Rust tests             | `cargo test --manifest-path src-tauri/Cargo.toml`        |
+| Task                        | Command                                                                             |
+| --------------------------- | ----------------------------------------------------------------------------------- |
+| Install dependencies        | `bun install`                                                                       |
+| Run dev shell (recommended) | `bun run tauri dev`                                                                 |
+| Run frontend only (browser) | `bun run dev` (no Tauri IPC available)                                              |
+| Build production bundle     | `bun run tauri build` → `src-tauri/target/release/bundle/macos/App Uninstaller.app` |
+| Type-check + Vite build     | `bun run build`                                                                     |
+| Lint                        | `bun run lint`                                                                      |
+| Run frontend tests          | `bun run test`                                                                      |
+| Run Rust tests              | `cargo test --manifest-path src-tauri/Cargo.toml`                                   |
 
 Bundle metadata (name, identifier `day.nhanh.appuninstaller`, icon, window size, macOS minimum version) lives in `src-tauri/tauri.conf.json`.
 
@@ -71,6 +71,7 @@ App Uninstaller needs **Full Disk Access** to read system locations like `/priva
 ## Scanned locations
 
 User Library:
+
 - `~/Library/Application Support/<bundle_id | app_name>`
 - `~/Library/Caches/<bundle_id | app_name>`
 - `~/Library/Preferences/<bundle_id>.plist`
@@ -79,6 +80,7 @@ User Library:
 - `~/Library/LaunchAgents/<bundle_id | app_name>*`
 
 System Library:
+
 - `/Library/Application Support/<bundle_id>`
 - `/Library/Preferences/<bundle_id>.plist`
 - `/Library/Receipts/<app_name>*`

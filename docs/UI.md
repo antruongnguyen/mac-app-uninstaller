@@ -28,24 +28,24 @@ The window has no application footer / no log drawer. Background-task progress i
 
 ## Component map
 
-| Region                            | shadcn primitive(s)                                    |
-| --------------------------------- | ------------------------------------------------------ |
-| Sidebar app row                   | `Item` + `ItemContent` + `ItemActions` for the running lock icon (+ `Tooltip`) |
-| Sidebar app row title             | `ItemTitle` (name) + inline `<span>` (version, font-mono) + `ItemDescription` (bundle id) |
-| Sidebar search                    | `InputGroup` + `InputGroupInput` + `InputGroupAddon` + `InputGroupButton` (clear) |
-| Sidebar scroll                    | `ScrollArea`                                           |
-| Header buttons                    | `Button` (variant=ghost, size=icon-sm) + `Tooltip`     |
-| GitHub button                     | `Button` with `onClick` calling `openUrl(REPO_URL)` from `@tauri-apps/plugin-opener` |
-| App card / Related files card     | `Card` + `CardHeader` / `CardContent` / `CardFooter`   |
-| App card body rows                | Inline `Label : Value` rows, styled via `STYLES.fieldRowLabel` + `STYLES.fieldRowValue` |
-| App card Size field               | Same row pattern, but lazy — shows `LoaderCircleIcon` + "Calculating…" while `useAppSize` resolves |
-| Running warning                   | Plain `<div>` styled via shared `STYLES.warningBanner` (destructive tint, lock icon) |
-| Name-based-scan notice            | Plain `<div>` styled via shared `STYLES.infoBanner` (amber tint, info icon) |
-| Path checklist                    | `Checkbox` + `<label htmlFor>` + `ScrollArea` + `Tooltip` (full path) |
-| Per-row reveal action             | `Button` (variant=ghost, size=icon-xs) + `FolderOpenIcon` + `Tooltip` |
-| Uninstall confirmation            | `AlertDialog` via `<UninstallConfirm>`                 |
-| Quit confirmation                 | Inline `AlertDialog` in `detail-panel.tsx`             |
-| Toasts                            | `sonner` Toaster                                       |
+| Region                        | shadcn primitive(s)                                                                                |
+| ----------------------------- | -------------------------------------------------------------------------------------------------- |
+| Sidebar app row               | `Item` + `ItemContent` + `ItemActions` for the running lock icon (+ `Tooltip`)                     |
+| Sidebar app row title         | `ItemTitle` (name) + inline `<span>` (version, font-mono) + `ItemDescription` (bundle id)          |
+| Sidebar search                | `InputGroup` + `InputGroupInput` + `InputGroupAddon` + `InputGroupButton` (clear)                  |
+| Sidebar scroll                | `ScrollArea`                                                                                       |
+| Header buttons                | `Button` (variant=ghost, size=icon-sm) + `Tooltip`                                                 |
+| GitHub button                 | `Button` with `onClick` calling `openUrl(REPO_URL)` from `@tauri-apps/plugin-opener`               |
+| App card / Related files card | `Card` + `CardHeader` / `CardContent` / `CardFooter`                                               |
+| App card body rows            | Inline `Label : Value` rows, styled via `STYLES.fieldRowLabel` + `STYLES.fieldRowValue`            |
+| App card Size field           | Same row pattern, but lazy — shows `LoaderCircleIcon` + "Calculating…" while `useAppSize` resolves |
+| Running warning               | Plain `<div>` styled via shared `STYLES.warningBanner` (destructive tint, lock icon)               |
+| Name-based-scan notice        | Plain `<div>` styled via shared `STYLES.infoBanner` (amber tint, info icon)                        |
+| Path checklist                | `Checkbox` + `<label htmlFor>` + `ScrollArea` + `Tooltip` (full path)                              |
+| Per-row reveal action         | `Button` (variant=ghost, size=icon-xs) + `FolderOpenIcon` + `Tooltip`                              |
+| Uninstall confirmation        | `AlertDialog` via `<UninstallConfirm>`                                                             |
+| Quit confirmation             | Inline `AlertDialog` in `detail-panel.tsx`                                                         |
+| Toasts                        | `sonner` Toaster                                                                                   |
 
 ## Theming
 

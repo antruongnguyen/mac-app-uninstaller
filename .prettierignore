@@ -1,0 +1,19 @@
+# Build outputs
+dist
+src-tauri/target
+
+# Dependencies
+node_modules
+
+# Lockfiles
+bun.lock
+
+# Generated shadcn primitives — managed by `npx shadcn add`, do not hand-format.
+src/components/ui
+
+# Rust sources are formatted by `cargo fmt`, not prettier.
+src-tauri
+
+# Static assets
+src-tauri/icons
+public

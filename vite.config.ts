@@ -5,7 +5,9 @@ import path from "path";
 import { readFileSync } from "fs";
 
 const host = process.env.TAURI_DEV_HOST;
-const pkg = JSON.parse(readFileSync(path.resolve(__dirname, "package.json"), "utf-8"));
+const pkg = JSON.parse(
+  readFileSync(path.resolve(__dirname, "package.json"), "utf-8"),
+);
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],

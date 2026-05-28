@@ -13,7 +13,7 @@ const sizeCache = new Map<string, number | null>();
 
 export function useAppSize(path: string | null) {
   const [size, setSize] = useState<number | null>(() =>
-    path ? sizeCache.get(path) ?? null : null,
+    path ? (sizeCache.get(path) ?? null) : null,
   );
   const [loading, setLoading] = useState(false);
   const requestId = useRef(0);

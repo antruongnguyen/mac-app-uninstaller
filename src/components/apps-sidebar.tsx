@@ -27,7 +27,11 @@ import { useIsTruncated } from "@/hooks/use-is-truncated";
 import { useAppsStore } from "@/stores/uninstaller";
 import type { AppInfo } from "@/types/models";
 
-export function AppsSidebar({ onSelect }: { onSelect: (app: AppInfo) => void }) {
+export function AppsSidebar({
+  onSelect,
+}: {
+  onSelect: (app: AppInfo) => void;
+}) {
   const { apps, selectedPath, loading } = useAppsStore();
   const [query, setQuery] = useState("");
 

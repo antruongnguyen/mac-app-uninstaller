@@ -34,10 +34,7 @@ export function Header({
         {selectedApp?.name ?? ""}
       </h1>
 
-      <div
-        id={IDS.headerActions}
-        className="ml-auto flex items-center gap-1"
-      >
+      <div id={IDS.headerActions} className="ml-auto flex items-center gap-1">
         <Tooltip>
           <TooltipTrigger
             render={
@@ -49,7 +46,9 @@ export function Header({
                 disabled={refreshing}
                 aria-label="Refresh"
               >
-                <RefreshCwIcon className={refreshing ? "animate-spin" : undefined} />
+                <RefreshCwIcon
+                  className={refreshing ? "animate-spin" : undefined}
+                />
               </Button>
             }
           />
